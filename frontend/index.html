@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Monitor — CFTV de Janelas (Acer)</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header>
+    <div class="logo-area">
+      <h1>🖥️ Stream Monitor</h1>
+      <div class="status-badge">
+        <span class="status-dot online" id="statusDot"></span>
+        <span id="statusText">Conectado</span>
+      </div>
+    </div>
+
+    <div class="controls-area">
+      <button class="btn btn-primary" id="btnMasterToggle">
+        <span id="masterIcon">⏹</span> <span id="masterText">Parar Todos</span>
+      </button>
+      <button class="btn" id="btnAddWindow">
+        ➕ Adicionar Janela
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid-container" id="gridContainer">
+      <!-- Cards de vídeo inseridos dinamicamente aqui -->
+    </div>
+  </main>
+
+  <!-- Modal de Seleção de Janelas -->
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Selecione uma Janela para Monitorar</h3>
+        <button class="icon-btn" id="btnCloseModal">✕</button>
+      </div>
+      <div class="modal-body" id="windowListContainer">
+        <div style="text-align: center; color: #8b949e; padding: 20px;">Carregando janelas...</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
