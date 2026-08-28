@@ -45,15 +45,20 @@ Uma solução 100% Python em um único serviço self-contained:
 ### Diretrizes de UI/UX:
 - **Tema:** Dark mode elegante (paleta estilo GitHub Dark / Monospace).
 - **Layout:**
-  - **Header:** Status de conexão, FPS geral, botão `+ Adicionar Janela` e contador de janelas ativas.
+  - **Header:**
+    - Status de conexão / Status do Stream (Ativo / Parado).
+    - **Botão Master: `[ ▶ Iniciar Monitoramento ]` / `[ ⏹ Parar Monitoramento ]`**.
+    - Botão `[ + Adicionar Janela ]`.
+    - Contador de janelas ativas e seletor de layout (1x1, 2x2, etc.).
   - **Sidebar / Modal de Seleção:** Lista de janelas ativas com ícones de app (Chrome, VS Code, Terminal, etc.), PID e resolução.
   - **Área de Grid (CFTV):**
     - Layout configurável (1x1, 1x2, 2x2, 3x3 ou auto-ajustável estilo Zoom/Meet).
     - Cada card de janela possui:
       - Tag `<video>` em tempo real (sem controles de mouse/teclado).
       - Header do card com o título da janela.
-      - Botão de fechar (encerra o stream).
-      - Botão de tela cheia (*Fullscreen* daquele vídeo específico).
+      - **Botão Individual `[ ▶ / ⏸ ]` (Start/Stop stream da janela).**
+      - Botão de fechar `[ ✕ ]` (remove a janela da grade e encerra o processo).
+      - Botão de tela cheia `[ ⛶ ]` (*Fullscreen* daquele vídeo específico).
       - Indicador de latência e resolução.
 
 ---

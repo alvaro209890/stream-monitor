@@ -11,7 +11,8 @@ Permitir que o usuário abra um painel web em qualquer dispositivo (celular, tab
 2. Abra múltiplas janelas simultaneamente em uma grade (estilo CFTV / central de monitoramento).
 3. Transmita o conteúdo de cada janela de forma individual e com latência ultra-baixa (< 200ms).
 4. Visualize janelas mesmo que estejam ocultas/minimizadas para o usuário físico no monitor do Acer (usando a técnica de workspaces fantasmas no X11).
-5. **Garantia de segurança view-only:** O frontend não possui código para capturar ou transmitir cliques, movimentos de mouse ou teclas.
+5. **Controle de Início / Parada:** Controle global e individual por botão (*Start/Stop Stream*), economizando 100% de CPU/GPU quando inativo.
+6. **Garantia de segurança view-only:** O frontend não possui código para capturar ou transmitir cliques, movimentos de mouse ou teclas.
 
 ---
 
@@ -21,9 +22,9 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
 
 | Arquivo | Descrição |
 |---|---|
-| [**`01-ARQUITETURA.md`**](./01-ARQUITETURA.md) | Visão geral da arquitetura, fluxo de dados, WebRTC, API e isolamento view-only. |
+| [**`01-ARQUITETURA.md`**](./01-ARQUITETURA.md) | Visão geral da arquitetura, fluxo de dados, WebRTC, API, ciclo de Start/Stop e isolamento view-only. |
 | [**`02-CAPTURA-X11-E-JANELAS.md`**](./02-CAPTURA-X11-E-JANELAS.md) | Comandos X11, manipulação de janelas, resolução do problema de janelas minimizadas e pipelines de encoder (FFmpeg / VAAPI). |
-| [**`03-STACK-E-TECNOLOGIAS.md`**](./03-STACK-E-TECNOLOGIAS.md) | Opções de stack recomendadas (Python `aiortc` vs Node.js + `go2rtc` / MediaMTX), frontend SPA e players. |
+| [**`03-STACK-E-TECNOLOGIAS.md`**](./03-STACK-E-TECNOLOGIAS.md) | Opções de stack recomendadas (Python `aiortc` vs Node.js + `go2rtc` / MediaMTX), frontend SPA, botões de ação e players. |
 | [**`04-INFRA-E-DEPLOY-CURSAR.md`**](./04-INFRA-E-DEPLOY-CURSAR.md) | Portas no Acer, configuração de Cloudflare Tunnel para `stream.cursar.space`, systemd units. |
 | [**`05-ROADMAP-E-TASKS.md`**](./05-ROADMAP-E-TASKS.md) | Checklist e fases de implementação prontas para um agente de IA executar. |
 
@@ -42,8 +43,8 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
 ## 🚀 Status do Projeto
 
 - [x] Repositório inicializado e público (`alvaro209890/stream-monitor`)
-- [x] Especificação e arquitetura documentadas
+- [x] Especificação e arquitetura documentadas (incluindo controles de Start/Stop)
 - [ ] Fase 1: Backend de escaneamento X11 e teste de pipeline de vídeo
-- [ ] Fase 2: Servidor WebRTC / Streamer multi-janela
-- [ ] Fase 3: Frontend Grid e seletor de janelas
+- [ ] Fase 2: Servidor WebRTC / Streamer multi-janela com ciclo Start/Stop
+- [ ] Fase 3: Frontend Grid com seletor de janelas e botões de Start/Stop
 - [ ] Fase 4: Integração com Cloudflare Tunnel (`stream.cursar.space`)

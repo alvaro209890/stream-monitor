@@ -24,14 +24,16 @@ Este documento serve como **plano de execução passo a passo** para o agente de
 ### 🔹 Fase 3: Interface Web (Frontend Grid CFTV)
 - [ ] Criar SPA simples e responsiva (`index.html`, `styles.css`, `app.js`).
 - [ ] Header com:
-  - Indicador de status (Conectado / Desconectado).
-  - Botão `+ Adicionar Janela` que abre modal com a lista de janelas ativas.
+  - Indicador de status (Conectado / Desconectado / Stream Ativo).
+  - **Botão Master `[ ▶ Iniciar Stream ]` / `[ ⏹ Parar Stream ]`**.
+  - Botão `[ + Adicionar Janela ]` que abre modal com a lista de janelas ativas.
   - Seletor de layout (Grade 1x1, 2x2, 3x3, etc.).
 - [ ] Cada card de janela na grade:
   - Título da janela e ícone da aplicação.
   - Tag `<video>` exibindo o stream em tempo real.
-  - Botão de fechar (destrói o player e avisa o backend para encerrar o FFmpeg daquela janela).
-  - Botão de Fullscreen individual.
+  - **Botão individual `[ ▶ / ⏸ ]` de Start/Stop daquela janela.**
+  - Botão de fechar `[ ✕ ]` (remove o card e finaliza o processo FFmpeg).
+  - Botão de Fullscreen individual `[ ⛶ ]`.
   - **Zero listeners de entrada:** O elemento `<video>` não repassa nenhum clique ou tecla para o backend.
 
 ### 🔹 Fase 4: Deploy e Integração Cloudflare

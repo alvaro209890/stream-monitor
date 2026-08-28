@@ -45,10 +45,13 @@ O **Stream Monitor** é composto por duas camadas principais rodando localmente 
 - O backend **não possui** endpoints ou comandos para injetar eventos de entrada (sem `xdotool click`, `uinput` ou similar).
 - Não há risco de ações acidentais ou comandos indesejados disparados pelo navegador.
 
-### ⚡ 2.2 Eficiência e Baixo Consumo de Recursos
-- **Captura Sob Demanda:** Se nenhuma janela estiver sendo visualizada no site, **nenhum encoder FFmpeg roda**.
-- **Destruição de Sessões Ociosas:** Quando o usuário fecha um card de vídeo na interface, o processo de captura e encoding correspondente é finalizado imediatamente via `SIGTERM`.
-- **Aceleração por Hardware:** Uso prioritário do encoder VAAPI da APU AMD Lucienne (`h264_vaapi`) ou perfil `ultrafast` + `zerolatency` no `libx264` para manter o consumo de CPU abaixo de 5-10% por stream.
+### ⚡ 2.2 Eficiência, Baixo Consumo e Ciclo Start / Stop
+- **Botões de Iniciar / Parar (Start / Stop):**
+  - **Individual:** Cada card de janela possui um botão para pausar/desligar o stream daquela janela individualmente.
+  - **Master / Global:** No topo da página existe um botão de *Ligar/Desligar Monitoramento* que inicia ou derruba todas as transmissões de uma vez.
+- **Captura Estritamente Sob Demanda:** Se o stream estiver parado ou nenhuma janela estiver sendo visualizada, **nenhum processo FFmpeg roda**.
+- **Destruição Imediata:** Ao clicar em Parar ou fechar o card, o processo de encoding associado recebe `SIGTERM` e libera 100% de CPU/GPU.
+- **Aceleração por Hardware:** Uso prioritário do encoder VAAPI da APU AMD Lucienne (`h264_vaapi`) ou perfil `ultrafast` + `zerolatency` no `libx264`.
 
 ### 🌐 2.3 Roteamento e Acesso
 - O serviço escutará em porta dedicada do Acer (ex: `127.0.0.1:3090` para API/Web e porta UDP/TCP WebRTC).
