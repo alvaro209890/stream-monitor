@@ -14,9 +14,15 @@
         <span class="status-dot online" id="statusDot"></span>
         <span id="statusText">Conectado</span>
       </div>
+      <div class="status-badge" id="systemMetricsBadge" style="display: none;">
+        <span>CPU: <b id="valCpu">0%</b></span>
+        <span>RAM: <b id="valRam">0%</b></span>
+        <span>Streams: <b id="valStreams">0</b></span>
+      </div>
     </div>
 
     <div class="controls-area">
+      <button class="btn" id="btnRefreshWindows" title="Recarregar Janelas">🔄</button>
       <button class="btn btn-primary" id="btnMasterToggle">
         <span id="masterIcon">⏹</span> <span id="masterText">Parar Todos</span>
       </button>
@@ -29,6 +35,11 @@
   <main>
     <div class="grid-container" id="gridContainer">
       <!-- Cards de vídeo inseridos dinamicamente aqui -->
+      <div class="empty-state" id="emptyState">
+        <div style="font-size: 2.5rem; margin-bottom: 12px;">📺</div>
+        <h3>Nenhuma janela sendo monitorada</h3>
+        <p style="color: #8b949e; font-size: 0.85rem; margin-top: 6px;">Clique no botão "+ Adicionar Janela" acima para escolher as janelas do Acer que deseja transmitir.</p>
+      </div>
     </div>
   </main>
 

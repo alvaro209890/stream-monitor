@@ -4,16 +4,25 @@ let activeSessions = {}; // window_id -> { pc, sessionId, videoEl, cardEl, pause
 let masterStreaming = true;
 
 const gridContainer = document.getElementById("gridContainer");
+const emptyState = document.getElementById("emptyState");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const windowListContainer = document.getElementById("windowListContainer");
 const btnAddWindow = document.getElementById("btnAddWindow");
 const btnCloseModal = document.getElementById("btnCloseModal");
 const btnMasterToggle = document.getElementById("btnMasterToggle");
+const btnRefreshWindows = document.getElementById("btnRefreshWindows");
 const masterIcon = document.getElementById("masterIcon");
 const masterText = document.getElementById("masterText");
 
-// Eventos do Modal
+// Métricas de Hardware
+const metricsBadge = document.getElementById("systemMetricsBadge");
+const valCpu = document.getElementById("valCpu");
+const valRam = document.getElementById("valRam");
+const valStreams = document.getElementById("valStreams");
+
+// Eventos
 btnAddWindow.addEventListener("click", openWindowPicker);
+if (btnRefreshWindows) btnRefreshWindows.addEventListener("click", openWindowPicker);
 btnCloseModal.addEventListener("click", () => modalBackdrop.classList.add("hidden"));
 modalBackdrop.addEventListener("click", (e) => {
   if (e.target === modalBackdrop) modalBackdrop.classList.add("hidden");
@@ -26,7 +35,6 @@ btnMasterToggle.addEventListener("click", () => {
     btnMasterToggle.className = "btn btn-primary";
     masterIcon.textContent = "⏹";
     masterText.textContent = "Parar Todos";
-    // Retoma todos os pausados
     Object.keys(activeSessions).forEach(winId => {
       if (activeSessions[winId].paused) toggleStreamCard(winId);
     });
@@ -34,12 +42,33 @@ btnMasterToggle.addEventListener("click", () => {
     btnMasterToggle.className = "btn btn-danger";
     masterIcon.textContent = "▶";
     masterText.textContent = "Iniciar Todos";
-    // Pausa todos os ativos
     Object.keys(activeSessions).forEach(winId => {
       if (!activeSessions[winId].paused) toggleStreamCard(winId);
     });
   }
 });
+
+function updateEmptyState() {
+  if (emptyState) {
+    emptyState.style.display = Object.keys(activeSessions).length === 0 ? "flex" : "none";
+  }
+}
+
+// Polling de Métricas do Host a cada 5 segundos
+async function pollMetrics() {
+  try {
+    const res = await fetch("/api/system/stats");
+    if (res.ok) {
+      const data = await res.json();
+      metricsBadge.style.display = "flex";
+      valCpu.textContent = `${data.cpu_usage}%`;
+      valRam.textContent = `${data.memory_percent}%`;
+      valStreams.textContent = `${data.active_streams}`;
+    }
+  } catch (e) {}
+}
+setInterval(pollMetrics, 5000);
+pollMetrics();
 
 async function openWindowPicker() {
   modalBackdrop.classList.remove("hidden");
@@ -113,6 +142,7 @@ async function addStreamCard(win) {
   `;
 
   gridContainer.appendChild(card);
+  updateEmptyState();
 
   const videoEl = card.querySelector(`#video_${win.id_hex}`);
   const btnToggle = card.querySelector(`#btnToggle_${win.id_hex}`);
@@ -121,7 +151,11 @@ async function addStreamCard(win) {
   const btnResume = card.querySelector(`#btnResume_${win.id_hex}`);
 
   btnFull.addEventListener("click", () => {
-    if (videoEl.requestFullscreen) videoEl.requestFullscreen();
+    if (videoEl.requestFullscreen) {
+      videoEl.requestFullscreen();
+    } else if (card.requestFullscreen) {
+      card.requestFullscreen();
+    }
   });
 
   btnClose.addEventListener("click", () => closeStreamCard(win.id_hex));
@@ -145,7 +179,11 @@ async function startWebRtcStream(winIdHex) {
   if (!session) return;
 
   const win = session.winData;
-  const pc = new RTCPeerConnection();
+  const pc = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" }
+    ]
+  });
   session.pc = pc;
 
   pc.addTransceiver("video", { direction: "recvonly" });
@@ -179,7 +217,7 @@ async function startWebRtcStream(winIdHex) {
     session.sessionId = answer.session_id;
     await pc.setRemoteDescription(new RTCSessionDescription(answer));
   } catch (err) {
-    console.error("Erro ao iniciar WebRTC:", err);
+    console.error("Erro ao negociar WebRTC:", err);
   }
 }
 
@@ -224,6 +262,7 @@ async function closeStreamCard(winIdHex) {
 
   session.cardEl.remove();
   delete activeSessions[winIdHex];
+  updateEmptyState();
 }
 
 function escapeHtml(text) {

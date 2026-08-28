@@ -1,11 +1,14 @@
 import os
 import json
 import asyncio
+import subprocess
+import tempfile
+import psutil
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 
@@ -36,10 +39,87 @@ class OfferPayload(BaseModel):
     height: int = 720
     fps: int = 30
 
+@app.get("/api/system/stats")
+def get_system_stats():
+    """Retorna métricas em tempo real de hardware do Acer."""
+    cpu_percent = psutil.cpu_percent(interval=None)
+    mem = psutil.virtual_memory()
+    return {
+        "cpu_usage": cpu_percent,
+        "memory_used_mb": round(mem.used / (1024 * 1024), 1),
+        "memory_total_mb": round(mem.total / (1024 * 1024), 1),
+        "memory_percent": mem.percent,
+        "active_streams": len(tracks)
+    }
+
 @app.get("/api/windows")
 def list_windows():
     """Retorna lista de janelas ativas no X11."""
     return {"windows": get_active_windows()}
+
+@app.get("/api/windows/{win_id_dec}/snapshot")
+def get_window_snapshot(win_id_dec: int):
+    """
+    Captura e retorna um frame snapshot JPEG de alta qualidade da janela.
+    Útil para preview rápido antes de iniciar o stream contínuo.
+    """
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "x11grab",
+        "-window_id", str(win_id_dec),
+        "-i", ":0.0",
+        "-vframes", "1",
+        "-q:v", "3",
+        "-f", "image2",
+        "pipe:1"
+    ]
+    try:
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True)
+        return Response(content=proc.stdout, media_type="image/jpeg")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao capturar snapshot: {e}")
+
+@app.get("/api/windows/{win_id_dec}/mjpeg")
+async def get_window_mjpeg(win_id_dec: int, fps: int = 15):
+    """
+    Stream de vídeo de fallback em MJPEG (HTTP multipart/x-mixed-replace).
+    Permite visualização instantânea em qualquer navegador sem necessidade de suporte WebRTC.
+    """
+    async def mjpeg_generator():
+        cmd = [
+            "ffmpeg",
+            "-f", "x11grab",
+            "-framerate", str(fps),
+            "-window_id", str(win_id_dec),
+            "-i", ":0.0",
+            "-q:v", "4",
+            "-f", "mpjpeg",
+            "pipe:1"
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        boundary = b"--ffmpeg\r\n"
+        buffer = b""
+        try:
+            while True:
+                if proc.stdout is None:
+                    break
+                chunk = proc.stdout.read(4096)
+                if not chunk:
+                    break
+                buffer += chunk
+                while boundary in buffer:
+                    part, buffer = buffer.split(boundary, 1)
+                    if part:
+                        yield boundary + part
+                await asyncio.sleep(0.01)
+        finally:
+            proc.terminate()
+            proc.kill()
+
+    return StreamingResponse(
+        mjpeg_generator(), 
+        media_type="multipart/x-mixed-replace; boundary=ffmpeg"
+    )
 
 @app.post("/api/windows/{win_id_hex}/workspace")
 def move_workspace(win_id_hex: str, workspace: int = 1):
@@ -113,7 +193,7 @@ def serve_index():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
         return FileResponse(index_file)
-    return {"message": "Stream Monitor API Ativa. Frontend em construção."}
+    return {"message": "Stream Monitor API Ativa."}
 
 if __name__ == "__main__":
     import uvicorn
