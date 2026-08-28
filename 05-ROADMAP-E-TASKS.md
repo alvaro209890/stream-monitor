@@ -7,40 +7,30 @@ Este documento serve como **plano de execução passo a passo** para o agente de
 ## 🎯 Fases de Implementação
 
 ### 🔹 Fase 1: Mapeamento de Janelas e Backend Base
-- [ ] Criar ambiente virtual Python (`uv venv` em `/home/acer/Documentos/stream-monitor/.venv`).
-- [ ] Instalar dependências base (`fastapi`, `uvicorn`, `websockets`, `aiortc` ou integrador `MediaMTX/go2rtc`).
-- [ ] Criar módulo `window_manager.py`:
-  - Função para listar janelas (`wmctrl -l -G -p -x`).
-  - Filtrar janelas especiais irrelevantes (desktop nemo, docks, barras de painel).
-  - Retornar JSON estruturado: `[{ id_hex, id_dec, title, app_class, pid, x, y, width, height, desktop }]`.
-  - Função para gerenciar envio de janelas para workspaces secundários (para manter renderização sem ocupar tela física).
+- [x] Criar ambiente virtual Python (`uv venv` em `/home/acer/Documentos/stream-monitor/.venv`).
+- [x] Instalar dependências base (`fastapi`, `uvicorn`, `websockets`, `aiortc`, `av`, `psutil`).
+- [x] Criar módulo `window_manager.py`:
+  - [x] Função para listar janelas (`wmctrl -l -G -p -x`).
+  - [x] Filtrar janelas especiais irrelevantes (desktop nemo, docks, barras de painel).
+  - [x] Retornar JSON estruturado: `[{ id_hex, id_dec, title, app_class, pid, x, y, width, height, desktop }]`.
+  - [x] Função para gerenciar envio de janelas para workspaces secundários.
 
 ### 🔹 Fase 2: Pipeline de Captura de Vídeo e Streaming
-- [ ] Implementar captura via FFmpeg `x11grab` por `window_id` ou coordenadas.
-- [ ] Testar encoding ultra-rápido (`libx264 -preset ultrafast -tune zerolatency`).
-- [ ] Criar mecanismo de sinalização WebRTC para entregar o stream de vídeo ao navegador.
-- [ ] Garantir que o processo FFmpeg finalize automaticamente quando o cliente desconectar do stream.
+- [x] Implementar captura via X11 `x11grab` PyAV por `window_id` e offset.
+- [x] Criar mecanismo de sinalização WebRTC para entregar o stream de vídeo ao navegador.
+- [x] Garantir que o processo de captura finalize automaticamente ao pausar ou fechar.
 
 ### 🔹 Fase 3: Interface Web (Frontend Grid CFTV)
-- [ ] Criar SPA simples e responsiva (`index.html`, `styles.css`, `app.js`).
-- [ ] Header com:
-  - Indicador de status (Conectado / Desconectado / Stream Ativo).
-  - **Botão Master `[ ▶ Iniciar Stream ]` / `[ ⏹ Parar Stream ]`**.
-  - Botão `[ + Adicionar Janela ]` que abre modal com a lista de janelas ativas.
-  - Seletor de layout (Grade 1x1, 2x2, 3x3, etc.).
-- [ ] Cada card de janela na grade:
-  - Título da janela e ícone da aplicação.
-  - Tag `<video>` exibindo o stream em tempo real.
-  - **Botão individual `[ ▶ / ⏸ ]` de Start/Stop daquela janela.**
-  - Botão de fechar `[ ✕ ]` (remove o card e finaliza o processo FFmpeg).
-  - Botão de Fullscreen individual `[ ⛶ ]`.
-  - **Zero listeners de entrada:** O elemento `<video>` não repassa nenhum clique ou tecla para o backend.
+- [x] Criar SPA responsiva (`index.html`, `styles.css`, `app.js`).
+- [x] Header com indicador de status, botão Master Start/Stop e botão de adicionar janela.
+- [x] Grid CFTV com cards individuais de vídeo, botão individual de Start/Stop, fullscreen e fechar.
+- [x] Zero listeners de entrada (`pointer-events: none` no vídeo).
 
 ### 🔹 Fase 4: Deploy e Integração Cloudflare
-- [ ] Configurar porta `:3090` no Cloudflare Tunnel para `stream.cursar.space`.
-- [ ] Criar serviço do systemd (`~/.config/systemd/user/stream-monitor.service`).
-- [ ] Habilitar autostart no boot via `systemctl --user enable stream-monitor` + `loginctl enable-linger acer`.
-- [ ] Reiniciar/validar persistência e testar acesso via navegador móvel e desktop em `https://stream.cursar.space`.
+- [x] Configurar porta `:3090` e criar túnel Cloudflare dedicado `stream.cursar.space`.
+- [x] Criar e habilitar serviços do systemd (`stream-monitor.service` + `cloudflared-stream-monitor.service`).
+- [x] Habilitar autostart no boot via `loginctl enable-linger acer` + systemd user.
+- [x] Validado acesso online em `https://stream.cursar.space`.
 
 ---
 

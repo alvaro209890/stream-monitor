@@ -45,8 +45,8 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
 
 - [x] Repositório inicializado e público (`alvaro209890/stream-monitor`)
 - [x] Especificação e arquitetura documentadas (incluindo controles de Start/Stop)
-- [ ] Fase 1: Backend de escaneamento X11 e teste de pipeline de vídeo
-- [ ] Fase 2: Servidor WebRTC / Streamer multi-janela com ciclo Start/Stop
-- [ ] Fase 3: Frontend Grid com seletor de janelas e botões de Start/Stop
-- [ ] Fase 4: Integração com Cloudflare Tunnel (`stream.cursar.space`)
-- [ ] Fase 5: Configuração e validação de Autostart no boot do sistema (`systemd --user`)
+- [x] Fase 1: Backend de escaneamento X11 e teste de pipeline de vídeo
+- [x] Fase 2: Servidor WebRTC / Streamer multi-janela com ciclo Start/Stop
+- [x] Fase 3: Frontend Grid com seletor de janelas e botões de Start/Stop
+- [x] Fase 4: Integração com Cloudflare Tunnel (`stream.cursar.space`)
+- [x] Fase 5: Configuração e validação de Autostart no boot do sistema (`systemd --user`)
