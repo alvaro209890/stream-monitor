@@ -2,14 +2,30 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Stream Monitor — CFTV de Janelas (Acer)</title>
+
+  <!-- PWA & iOS Safari Web App Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stream Monitor">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#161b22">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/static/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/static/apple-touch-icon.png">
+  <link rel="manifest" href="/static/manifest.json">
+
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <header>
     <div class="logo-area">
-      <h1>🖥️ Stream Monitor</h1>
+      <img src="/static/icon-192.png" alt="Logo" class="header-logo">
+      <h1>Stream Monitor</h1>
       <div class="status-badge">
         <span class="status-dot online" id="statusDot"></span>
         <span id="statusText">Conectado</span>

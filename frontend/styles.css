@@ -34,6 +34,12 @@ header {
   flex-wrap: wrap;
 }
 
+.header-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
 .logo-area h1 {
   font-size: 1.15rem;
   font-weight: 600;
