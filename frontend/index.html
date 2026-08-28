@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Stream Monitor">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#161b22">
+  <meta name="theme-color" content="#0d1117">
 
   <!-- Icons -->
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
@@ -22,52 +22,97 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <!-- Header Topo -->
   <header>
-    <div class="logo-area">
-      <img src="/static/icon-192.png" alt="Logo" class="header-logo">
-      <h1>Stream Monitor</h1>
-      <div class="status-badge">
-        <span class="status-dot online" id="statusDot"></span>
-        <span id="statusText">Conectado</span>
+    <div class="header-top">
+      <div class="logo-area">
+        <img src="/static/icon-192.png" alt="Logo" class="header-logo">
+        <div class="brand-text">
+          <h1>Stream Monitor</h1>
+          <div class="connection-status">
+            <span class="status-dot online" id="statusDot"></span>
+            <span id="statusText">Host Acer Online</span>
+          </div>
+        </div>
       </div>
-      <div class="status-badge" id="systemMetricsBadge" style="display: none;">
-        <span>CPU: <b id="valCpu">0%</b></span>
-        <span>RAM: <b id="valRam">0%</b></span>
-        <span>Streams: <b id="valStreams">0</b></span>
+
+      <div class="header-actions">
+        <button class="btn btn-icon" id="btnRefreshWindows" title="Recarregar Janelas">🔄</button>
+        <button class="btn btn-primary" id="btnAddWindow">
+          <span>➕</span> <span class="btn-text">Adicionar</span>
+        </button>
       </div>
     </div>
 
-    <div class="controls-area">
-      <button class="btn" id="btnRefreshWindows" title="Recarregar Janelas">🔄</button>
-      <button class="btn btn-primary" id="btnMasterToggle">
-        <span id="masterIcon">⏹</span> <span id="masterText">Parar Todos</span>
-      </button>
-      <button class="btn" id="btnAddWindow">
-        ➕ Adicionar Janela
-      </button>
+    <!-- Barra de Métricas e Controles Rápidos -->
+    <div class="metrics-bar">
+      <div class="metric-pill">
+        <span class="metric-label">CPU</span>
+        <b class="metric-val" id="valCpu">0%</b>
+      </div>
+      <div class="metric-pill">
+        <span class="metric-label">RAM</span>
+        <b class="metric-val" id="valRam">0%</b>
+      </div>
+      <div class="metric-pill">
+        <span class="metric-label">STREAMS</span>
+        <b class="metric-val" id="valStreams">0</b>
+      </div>
+      <div class="master-toggle-wrapper">
+        <button class="btn btn-sm btn-outline-danger" id="btnMasterToggle">
+          <span id="masterIcon">⏹</span> <span id="masterText">Parar Todos</span>
+        </button>
+      </div>
     </div>
   </header>
 
+  <!-- Conteúdo Principal -->
   <main>
     <div class="grid-container" id="gridContainer">
-      <!-- Cards de vídeo inseridos dinamicamente aqui -->
+      <!-- Empty State -->
       <div class="empty-state" id="emptyState">
-        <div style="font-size: 2.5rem; margin-bottom: 12px;">📺</div>
-        <h3>Nenhuma janela sendo monitorada</h3>
-        <p style="color: #8b949e; font-size: 0.85rem; margin-top: 6px;">Clique no botão "+ Adicionar Janela" acima para escolher as janelas do Acer que deseja transmitir.</p>
+        <div class="empty-icon">📺</div>
+        <h3>Nenhuma janela sendo transmitida</h3>
+        <p>Toque em <b>"+ Adicionar"</b> para escolher janelas do Acer.</p>
+        <button class="btn btn-primary btn-lg" id="btnEmptyAdd">
+          ➕ Escolher Janela
+        </button>
       </div>
     </div>
   </main>
 
-  <!-- Modal de Seleção de Janelas -->
+  <!-- Barra de Ações Fixa Inferior no Mobile (Bottom Action Bar) -->
+  <nav class="mobile-bottom-bar">
+    <button class="bottom-nav-item" id="btnBottomRefresh">
+      <span class="nav-icon">🔄</span>
+      <span class="nav-label">Atualizar</span>
+    </button>
+    <button class="bottom-nav-item bottom-nav-primary" id="btnBottomAdd">
+      <span class="nav-icon">➕</span>
+      <span class="nav-label">Nova Janela</span>
+    </button>
+    <button class="bottom-nav-item" id="btnBottomMaster">
+      <span class="nav-icon" id="bottomMasterIcon">⏹</span>
+      <span class="nav-label" id="bottomMasterText">Parar Todos</span>
+    </button>
+  </nav>
+
+  <!-- Modal / Bottom Sheet de Seleção de Janelas -->
   <div class="modal-backdrop hidden" id="modalBackdrop">
     <div class="modal-content">
+      <div class="modal-handle"></div>
       <div class="modal-header">
-        <h3>Selecione uma Janela para Monitorar</h3>
-        <button class="icon-btn" id="btnCloseModal">✕</button>
+        <div class="modal-title-area">
+          <h3>Janelas Disponíveis no Acer</h3>
+          <span class="modal-subtitle">Selecione para transmitir ao vivo</span>
+        </div>
+        <button class="icon-btn close-btn" id="btnCloseModal">✕</button>
       </div>
       <div class="modal-body" id="windowListContainer">
-        <div style="text-align: center; color: #8b949e; padding: 20px;">Carregando janelas...</div>
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <span>Buscando janelas no X11...</span>
+        </div>
       </div>
     </div>
   </div>

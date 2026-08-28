@@ -1,4 +1,4 @@
-// Stream Monitor Frontend Logic — View-Only WebRTC Grid
+// Stream Monitor Frontend Logic — Mobile-First WebRTC Grid
 
 let activeSessions = {}; // window_id -> { pc, sessionId, videoEl, cardEl, paused, winData }
 let masterStreaming = true;
@@ -7,46 +7,74 @@ const gridContainer = document.getElementById("gridContainer");
 const emptyState = document.getElementById("emptyState");
 const modalBackdrop = document.getElementById("modalBackdrop");
 const windowListContainer = document.getElementById("windowListContainer");
+
+// Botões Header
 const btnAddWindow = document.getElementById("btnAddWindow");
 const btnCloseModal = document.getElementById("btnCloseModal");
 const btnMasterToggle = document.getElementById("btnMasterToggle");
 const btnRefreshWindows = document.getElementById("btnRefreshWindows");
+const btnEmptyAdd = document.getElementById("btnEmptyAdd");
 const masterIcon = document.getElementById("masterIcon");
 const masterText = document.getElementById("masterText");
 
+// Botões Mobile Bottom Bar
+const btnBottomRefresh = document.getElementById("btnBottomRefresh");
+const btnBottomAdd = document.getElementById("btnBottomAdd");
+const btnBottomMaster = document.getElementById("btnBottomMaster");
+const bottomMasterIcon = document.getElementById("bottomMasterIcon");
+const bottomMasterText = document.getElementById("bottomMasterText");
+
 // Métricas de Hardware
-const metricsBadge = document.getElementById("systemMetricsBadge");
 const valCpu = document.getElementById("valCpu");
 const valRam = document.getElementById("valRam");
 const valStreams = document.getElementById("valStreams");
 
-// Eventos
-btnAddWindow.addEventListener("click", openWindowPicker);
+// Eventos de Abertura do Modal
+if (btnAddWindow) btnAddWindow.addEventListener("click", openWindowPicker);
+if (btnBottomAdd) btnBottomAdd.addEventListener("click", openWindowPicker);
+if (btnEmptyAdd) btnEmptyAdd.addEventListener("click", openWindowPicker);
 if (btnRefreshWindows) btnRefreshWindows.addEventListener("click", openWindowPicker);
-btnCloseModal.addEventListener("click", () => modalBackdrop.classList.add("hidden"));
+if (btnBottomRefresh) btnBottomRefresh.addEventListener("click", openWindowPicker);
+
+if (btnCloseModal) btnCloseModal.addEventListener("click", () => modalBackdrop.classList.add("hidden"));
 modalBackdrop.addEventListener("click", (e) => {
   if (e.target === modalBackdrop) modalBackdrop.classList.add("hidden");
 });
 
 // Master Start/Stop Toggle
-btnMasterToggle.addEventListener("click", () => {
+function handleMasterToggle() {
   masterStreaming = !masterStreaming;
   if (masterStreaming) {
-    btnMasterToggle.className = "btn btn-primary";
-    masterIcon.textContent = "⏹";
-    masterText.textContent = "Parar Todos";
+    if (btnMasterToggle) {
+      btnMasterToggle.className = "btn btn-sm btn-outline-danger";
+      masterIcon.textContent = "⏹";
+      masterText.textContent = "Parar Todos";
+    }
+    if (bottomMasterIcon) bottomMasterIcon.textContent = "⏹";
+    if (bottomMasterText) bottomMasterText.textContent = "Parar Todos";
+
+    // Retoma todos os pausados
     Object.keys(activeSessions).forEach(winId => {
       if (activeSessions[winId].paused) toggleStreamCard(winId);
     });
   } else {
-    btnMasterToggle.className = "btn btn-danger";
-    masterIcon.textContent = "▶";
-    masterText.textContent = "Iniciar Todos";
+    if (btnMasterToggle) {
+      btnMasterToggle.className = "btn btn-sm btn-primary";
+      masterIcon.textContent = "▶";
+      masterText.textContent = "Iniciar Todos";
+    }
+    if (bottomMasterIcon) bottomMasterIcon.textContent = "▶";
+    if (bottomMasterText) bottomMasterText.textContent = "Iniciar Todos";
+
+    // Pausa todos os ativos
     Object.keys(activeSessions).forEach(winId => {
       if (!activeSessions[winId].paused) toggleStreamCard(winId);
     });
   }
-});
+}
+
+if (btnMasterToggle) btnMasterToggle.addEventListener("click", handleMasterToggle);
+if (btnBottomMaster) btnBottomMaster.addEventListener("click", handleMasterToggle);
 
 function updateEmptyState() {
   if (emptyState) {
@@ -60,10 +88,9 @@ async function pollMetrics() {
     const res = await fetch("/api/system/stats");
     if (res.ok) {
       const data = await res.json();
-      metricsBadge.style.display = "flex";
-      valCpu.textContent = `${data.cpu_usage}%`;
-      valRam.textContent = `${data.memory_percent}%`;
-      valStreams.textContent = `${data.active_streams}`;
+      if (valCpu) valCpu.textContent = `${data.cpu_usage}%`;
+      if (valRam) valRam.textContent = `${data.memory_percent}%`;
+      if (valStreams) valStreams.textContent = `${data.active_streams}`;
     }
   } catch (e) {}
 }
@@ -72,20 +99,25 @@ pollMetrics();
 
 async function openWindowPicker() {
   modalBackdrop.classList.remove("hidden");
-  windowListContainer.innerHTML = '<div style="text-align: center; color: #8b949e; padding: 20px;">Buscando janelas ativas...</div>';
+  windowListContainer.innerHTML = `
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Buscando janelas no X11...</span>
+    </div>
+  `;
 
   try {
     const res = await fetch("/api/windows");
     const data = await res.json();
     renderWindowList(data.windows || []);
   } catch (err) {
-    windowListContainer.innerHTML = `<div style="color: #f85149; padding: 20px;">Erro ao listar janelas: ${err.message}</div>`;
+    windowListContainer.innerHTML = `<div style="color: var(--accent-red); padding: 20px; text-align: center;">Erro ao listar janelas: ${err.message}</div>`;
   }
 }
 
 function renderWindowList(windows) {
   if (windows.length === 0) {
-    windowListContainer.innerHTML = '<div style="text-align: center; color: #8b949e; padding: 20px;">Nenhuma janela encontrada.</div>';
+    windowListContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 30px 10px;">Nenhuma janela encontrada aberta no Acer.</div>';
     return;
   }
 
@@ -97,9 +129,9 @@ function renderWindowList(windows) {
     item.innerHTML = `
       <div class="win-info">
         <span class="win-title">${escapeHtml(win.title)}</span>
-        <span class="win-meta">${escapeHtml(win.app_name)} • PID: ${win.pid} • ${win.width}x${win.height}</span>
+        <span class="win-meta"><b style="color: var(--accent-blue);">${escapeHtml(win.app_name)}</b> • PID ${win.pid} • ${win.width}x${win.height}</span>
       </div>
-      <button class="btn ${isAlreadyOpen ? 'btn-danger' : 'btn-primary'}" style="padding: 4px 10px; font-size: 0.75rem;">
+      <button class="btn btn-sm ${isAlreadyOpen ? 'btn-danger' : 'btn-primary'}">
         ${isAlreadyOpen ? 'Já Aberta' : 'Monitorar'}
       </button>
     `;
@@ -125,7 +157,10 @@ async function addStreamCard(win) {
 
   card.innerHTML = `
     <div class="card-header">
-      <span class="card-title" title="${escapeHtml(win.title)}">${escapeHtml(win.app_name)}: ${escapeHtml(win.title)}</span>
+      <div class="card-title-group">
+        <span class="card-app-badge">${escapeHtml(win.app_name)}</span>
+        <span class="card-title" title="${escapeHtml(win.title)}">${escapeHtml(win.title)}</span>
+      </div>
       <div class="card-actions">
         <button class="icon-btn" title="Pausar/Iniciar" id="btnToggle_${win.id_hex}">⏸</button>
         <button class="icon-btn" title="Tela Cheia" id="btnFull_${win.id_hex}">⛶</button>
@@ -136,7 +171,7 @@ async function addStreamCard(win) {
       <video id="video_${win.id_hex}" autoplay playsinline muted></video>
       <div class="paused-overlay hidden" id="overlay_${win.id_hex}">
         <span>⏹ Stream Pausado</span>
-        <button class="btn btn-primary" style="font-size: 0.75rem; padding: 4px 8px;" id="btnResume_${win.id_hex}">▶ Retomar</button>
+        <button class="btn btn-primary btn-sm" id="btnResume_${win.id_hex}">▶ Retomar</button>
       </div>
     </div>
   `;
@@ -153,6 +188,8 @@ async function addStreamCard(win) {
   btnFull.addEventListener("click", () => {
     if (videoEl.requestFullscreen) {
       videoEl.requestFullscreen();
+    } else if (videoEl.webkitRequestFullscreen) {
+      videoEl.webkitRequestFullscreen();
     } else if (card.requestFullscreen) {
       card.requestFullscreen();
     }
