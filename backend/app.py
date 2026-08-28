@@ -183,8 +183,18 @@ async def cleanup_pc(pc_id: str):
         await pc.close()
     print(f"[Cleanup] Sessão {pc_id} finalizada.")
 
-# Servir Frontend SPA Estático
+# Servir Frontend SPA Estático com Headers No-Cache
 FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
+
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
@@ -192,7 +202,10 @@ if os.path.exists(FRONTEND_DIR):
 def serve_index():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
+        return FileResponse(
+            index_file, 
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate, max-age=0"}
+        )
     return {"message": "Stream Monitor API Ativa."}
 
 if __name__ == "__main__":
