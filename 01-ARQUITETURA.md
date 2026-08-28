@@ -57,6 +57,11 @@ O **Stream Monitor** é composto por duas camadas principais rodando localmente 
 - O serviço escutará em porta dedicada do Acer (ex: `127.0.0.1:3090` para API/Web e porta UDP/TCP WebRTC).
 - Integrado ao Cloudflare Tunnel configurado para responder no subdomínio `stream.cursar.space`.
 
+### 🚀 2.4 Inicialização Automática com o Boot (Autostart)
+- **Serviço Systemd User:** O backend do Stream Monitor é gerenciado pelo systemd do usuário (`~/.config/systemd/user/stream-monitor.service`).
+- **Persistência Sem Login (Linger):** Com `loginctl enable-linger acer`, o serviço e a API WebRTC sobem no boot do sistema operacional sem exigir que a tela física seja desbloqueada ou que uma sessão manual seja aberta.
+- **Ambiente Gráfico Conectado:** O serviço é configurado com `DISPLAY=:0` e `XAUTHORITY=/home/acer/.Xauthority` para ter acesso imediato ao servidor X11 assim que a sessão gráfica estiver disponível.
+
 ---
 
 ## 3. Protocolo de Transmissão (Por que WebRTC?)

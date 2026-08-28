@@ -70,12 +70,19 @@ RestartSec=5
 WantedBy=default.target
 ```
 
-### Ativação do Serviço:
+### Ativação do Serviço no Boot:
 
 ```bash
+# 1. Garantir que serviços do usuário rodem sem precisar de login interativo
+loginctl enable-linger acer
+
+# 2. Recarregar e habilitar para início automático
 systemctl --user daemon-reload
 systemctl --user enable stream-monitor
 systemctl --user start stream-monitor
+
+# 3. Verificar status
+systemctl --user status stream-monitor
 ```
 
 ---

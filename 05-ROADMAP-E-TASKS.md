@@ -39,7 +39,8 @@ Este documento serve como **plano de execução passo a passo** para o agente de
 ### 🔹 Fase 4: Deploy e Integração Cloudflare
 - [ ] Configurar porta `:3090` no Cloudflare Tunnel para `stream.cursar.space`.
 - [ ] Criar serviço do systemd (`~/.config/systemd/user/stream-monitor.service`).
-- [ ] Testar acesso via navegador móvel e desktop em `https://stream.cursar.space`.
+- [ ] Habilitar autostart no boot via `systemctl --user enable stream-monitor` + `loginctl enable-linger acer`.
+- [ ] Reiniciar/validar persistência e testar acesso via navegador móvel e desktop em `https://stream.cursar.space`.
 
 ---
 

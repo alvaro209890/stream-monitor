@@ -12,7 +12,8 @@ Permitir que o usuário abra um painel web em qualquer dispositivo (celular, tab
 3. Transmita o conteúdo de cada janela de forma individual e com latência ultra-baixa (< 200ms).
 4. Visualize janelas mesmo que estejam ocultas/minimizadas para o usuário físico no monitor do Acer (usando a técnica de workspaces fantasmas no X11).
 5. **Controle de Início / Parada:** Controle global e individual por botão (*Start/Stop Stream*), economizando 100% de CPU/GPU quando inativo.
-6. **Garantia de segurança view-only:** O frontend não possui código para capturar ou transmitir cliques, movimentos de mouse ou teclas.
+6. **Autostart no Boot:** O backend e o túnel iniciam automaticamente junto com a inicialização do PC (via `systemd --user` + linger ativo), ficando 100% disponível 24/7 sem necessidade de inicialização manual.
+7. **Garantia de segurança view-only:** O frontend não possui código para capturar ou transmitir cliques, movimentos de mouse ou teclas.
 
 ---
 
@@ -48,3 +49,4 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
 - [ ] Fase 2: Servidor WebRTC / Streamer multi-janela com ciclo Start/Stop
 - [ ] Fase 3: Frontend Grid com seletor de janelas e botões de Start/Stop
 - [ ] Fase 4: Integração com Cloudflare Tunnel (`stream.cursar.space`)
+- [ ] Fase 5: Configuração e validação de Autostart no boot do sistema (`systemd --user`)
