@@ -80,6 +80,11 @@ def get_active_windows() -> List[Dict[str, Any]]:
 
     return windows
 
+def is_window_alive(win_id_hex: str) -> bool:
+    """Verifica se a janela ainda existe no X11."""
+    wins = get_active_windows()
+    return any(w["id_hex"].lower() == win_id_hex.lower() for w in wins)
+
 def move_window_to_workspace(win_id_hex: str, workspace_index: int = 1) -> bool:
     """
     Move uma janela para um workspace secundário (para manter renderização sem ocupar o monitor físico).

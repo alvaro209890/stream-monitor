@@ -12,6 +12,7 @@
   --accent-blue: #58a6ff;
   --accent-green: #3fb950;
   --accent-red: #f85149;
+  --accent-yellow: #d29922;
   --accent-purple: #a371f7;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
@@ -33,6 +34,10 @@ body {
   display: flex;
   flex-direction: column;
   padding-bottom: calc(70px + var(--safe-bottom));
+}
+
+.hidden {
+  display: none !important;
 }
 
 /* Header */
@@ -197,6 +202,16 @@ header {
   background-color: rgba(248, 81, 73, 0.15);
 }
 
+.btn-outline-warning {
+  background-color: transparent;
+  color: var(--accent-yellow);
+  border-color: rgba(210, 153, 34, 0.4);
+}
+
+.btn-outline-warning:hover {
+  background-color: rgba(210, 153, 34, 0.15);
+}
+
 .btn-icon {
   padding: 7px 10px;
 }
@@ -295,7 +310,7 @@ main {
   align-items: center;
   gap: 6px;
   overflow: hidden;
-  max-width: calc(100% - 110px);
+  max-width: calc(100% - 150px);
 }
 
 .card-app-badge {
@@ -319,7 +334,7 @@ main {
 
 .card-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
 }
 
 .icon-btn {
@@ -327,14 +342,14 @@ main {
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 6px;
+  padding: 5px;
   border-radius: 6px;
   font-size: 0.95rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
-  min-height: 32px;
+  min-width: 28px;
+  min-height: 28px;
 }
 
 .icon-btn:active {
@@ -375,10 +390,6 @@ video {
   font-size: 0.85rem;
   z-index: 10;
   backdrop-filter: blur(4px);
-}
-
-.paused-overlay.hidden {
-  display: none;
 }
 
 /* Barra de Ações Fixa Inferior Mobile (iOS PWA Bar) */
@@ -460,10 +471,6 @@ video {
   .modal-backdrop {
     align-items: center;
   }
-}
-
-.modal-backdrop.hidden {
-  display: none;
 }
 
 .modal-content {
