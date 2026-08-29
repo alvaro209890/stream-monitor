@@ -8,6 +8,7 @@ from aiortc.mediastreams import MediaStreamError
 class X11WindowStreamTrack(MediaStreamTrack):
     """
     Faixa de vídeo WebRTC que captura uma janela ou região X11 via PyAV / FFmpeg x11grab.
+    Re-formata os frames nativos (bgr0) para yuv420p com dimensões pares para decodificação perfeita no browser/iOS.
     """
     kind = "video"
 
@@ -28,16 +29,16 @@ class X11WindowStreamTrack(MediaStreamTrack):
     def _init_capture(self):
         options = {
             "framerate": str(self.fps),
-            "draw_mouse": "0"  # view-only limpo sem cursor se preferir
+            "draw_mouse": "0"
         }
 
-        # Ajuste de dimensões pares (exigência H.264 / YUV420p)
+        # Ajuste de dimensões pares iniciais
         w = self.width if self.width % 2 == 0 else self.width - 1
         h = self.height if self.height % 2 == 0 else self.height - 1
         if w < 100: w = 1280
         if h < 100: h = 720
 
-        # Se tiver window_id válido tenta captura direta por janela
+        # Se tiver window_id tenta captura direta
         if self.window_id > 0:
             options["window_id"] = str(self.window_id)
             input_target = ":0.0"
@@ -55,8 +56,7 @@ class X11WindowStreamTrack(MediaStreamTrack):
             self._stream = self._container.streams.video[0]
             self._generator = self._container.decode(self._stream)
         except Exception as e:
-            # Fallback para captura de região no display :0.0 caso window_id falhe
-            print(f"[StreamTrack] Erro ao abrir com window_id {self.window_id} ({e}). Tentando fallback por offset...")
+            print(f"[StreamTrack] Erro abrindo x11grab com window_id {self.window_id}: {e}. Fallback por offset...")
             options.pop("window_id", None)
             options["video_size"] = f"{w}x{h}"
             input_target = f":0.0+{self.x},{self.y}"
@@ -75,15 +75,20 @@ class X11WindowStreamTrack(MediaStreamTrack):
 
         pts, time_base = await self.next_timestamp()
 
-        # Decodifica próximo frame do X11 de forma não-bloqueante
         loop = asyncio.get_event_loop()
         try:
             frame = await loop.run_in_executor(None, self._get_next_frame)
             if frame is None:
                 raise MediaStreamError
-            frame.pts = pts
-            frame.time_base = time_base
-            return frame
+
+            # Converte BGR0 do X11 para YUV420P com dimensões pares
+            target_w = frame.width if frame.width % 2 == 0 else frame.width - 1
+            target_h = frame.height if frame.height % 2 == 0 else frame.height - 1
+
+            new_frame = frame.reformat(width=target_w, height=target_h, format="yuv420p")
+            new_frame.pts = pts
+            new_frame.time_base = time_base
+            return new_frame
         except Exception as e:
             self.stop()
             raise MediaStreamError from e

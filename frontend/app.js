@@ -309,6 +309,7 @@ async function startWebRtcStream(winIdHex) {
   pc.ontrack = (event) => {
     if (event.track.kind === "video") {
       session.videoEl.srcObject = event.streams[0];
+      session.videoEl.play().catch(e => console.log("Autoplay:", e));
     }
   };
 
