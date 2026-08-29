@@ -2,12 +2,13 @@ import asyncio
 import fractions
 import time
 import av
-from aiortc import MediaStreamTrack
+from aiortc import VideoStreamTrack
 from aiortc.mediastreams import MediaStreamError
 
-class X11WindowStreamTrack(MediaStreamTrack):
+class X11WindowStreamTrack(VideoStreamTrack):
     """
     Faixa de vídeo WebRTC que captura uma janela ou região X11 via PyAV / FFmpeg x11grab.
+    Herda de VideoStreamTrack para gerenciar timestamps/PTS e clock rate perfeitamente.
     Re-formata os frames nativos (bgr0) para yuv420p com dimensões pares para decodificação perfeita no browser/iOS.
     """
     kind = "video"

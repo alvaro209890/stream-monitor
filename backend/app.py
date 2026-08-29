@@ -146,8 +146,11 @@ async def rtc_offer(params: OfferPayload):
     Endpoint de sinalização WebRTC (SDP Offer -> Answer).
     Instancia o track de captura X11 para a janela solicitada.
     """
+    config = RTCConfiguration(iceServers=[
+        RTCIceServer(urls=["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"])
+    ])
     offer = RTCSessionDescription(sdp=params.sdp, type=params.type)
-    pc = RTCPeerConnection()
+    pc = RTCPeerConnection(configuration=config)
     pc_id = f"pc_{len(pcs) + 1}_{int(asyncio.get_event_loop().time())}"
     pcs[pc_id] = pc
     if params.window_id_hex:
@@ -173,6 +176,12 @@ async def rtc_offer(params: OfferPayload):
     await pc.setRemoteDescription(offer)
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
+
+    # Aguarda rápida coleta de ICE candidates (para conexões atrás de túnel/NAT)
+    for _ in range(15):
+        if pc.iceGatheringState == "complete":
+            break
+        await asyncio.sleep(0.05)
 
     return {
         "sdp": pc.localDescription.sdp,
@@ -203,6 +212,7 @@ if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 @app.get("/")
+@app.head("/")
 def serve_index():
     index_file = os.path.join(FRONTEND_DIR, "index.html")
     if os.path.exists(index_file):
