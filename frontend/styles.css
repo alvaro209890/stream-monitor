@@ -680,3 +680,100 @@ video {
   font-size: 0.85rem;
   padding: 20px;
 }
+
+/* Painel de Controles da Janela / Terminal (estilo Orca CLI) */
+.card-controls {
+  background-color: #0d1117;
+  border-top: 1px solid var(--border-color);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.control-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.control-text-input {
+  flex: 1;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.control-text-input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.control-quick-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.key-pill {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s ease;
+}
+
+.key-pill:hover {
+  background-color: var(--bg-card-hover);
+  border-color: rgba(240, 246, 252, 0.2);
+}
+
+.key-pill:active {
+  transform: scale(0.92);
+}
+
+.key-pill.key-action {
+  background-color: rgba(88, 166, 255, 0.15);
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+.key-pill.key-danger {
+  background-color: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.4);
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.key-pill.key-foco {
+  background-color: rgba(63, 185, 80, 0.15);
+  border-color: rgba(63, 185, 80, 0.4);
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.icon-btn.active {
+  background-color: rgba(88, 166, 255, 0.2);
+  border-color: var(--accent-blue);
+}
+

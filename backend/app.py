@@ -15,7 +15,14 @@ from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCConfiguration, RTCIceServer
 
-from backend.window_manager import get_active_windows, move_window_to_workspace
+from backend.window_manager import (
+    get_active_windows,
+    move_window_to_workspace,
+    activate_window,
+    send_text_to_window,
+    send_key_to_window,
+    send_click_to_window,
+)
 from backend.streamer import X11WindowStreamTrack
 
 # ---------------------------------------------------------------------------
@@ -295,6 +302,42 @@ async def get_window_mjpeg(win_id_dec: int, fps: int = 15):
         headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
     )
 
+
+class ControlSendPayload(BaseModel):
+    text: str
+    enter: bool = True
+
+class ControlKeyPayload(BaseModel):
+    key: str
+
+class ControlClickPayload(BaseModel):
+    x: float
+    y: float
+    button: int = 1
+
+@app.post("/api/windows/{win_id_hex}/activate")
+def api_activate_window(win_id_hex: str):
+    if not activate_window(win_id_hex):
+        raise HTTPException(status_code=500, detail="Falha ao focar janela.")
+    return {"status": "ok", "action": "activate"}
+
+@app.post("/api/windows/{win_id_hex}/send")
+def api_send_text(win_id_hex: str, payload: ControlSendPayload):
+    if not send_text_to_window(win_id_hex, payload.text, payload.enter):
+        raise HTTPException(status_code=500, detail="Falha ao enviar texto para janela.")
+    return {"status": "ok", "action": "send", "text_len": len(payload.text)}
+
+@app.post("/api/windows/{win_id_hex}/key")
+def api_send_key(win_id_hex: str, payload: ControlKeyPayload):
+    if not send_key_to_window(win_id_hex, payload.key):
+        raise HTTPException(status_code=500, detail=f"Falha ao enviar tecla '{payload.key}' para janela.")
+    return {"status": "ok", "action": "key", "key": payload.key}
+
+@app.post("/api/windows/{win_id_hex}/click")
+def api_send_click(win_id_hex: str, payload: ControlClickPayload):
+    if not send_click_to_window(win_id_hex, payload.x, payload.y, payload.button):
+        raise HTTPException(status_code=500, detail="Falha ao enviar clique.")
+    return {"status": "ok", "action": "click", "x": payload.x, "y": payload.y}
 
 @app.post("/api/windows/{win_id_hex}/workspace")
 def move_workspace(win_id_hex: str, workspace: int = 1):

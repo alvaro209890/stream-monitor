@@ -191,6 +191,7 @@ function buildCard(key, win) {
         <span class="card-title" data-role="title" title="${escapeHtml(win.title)}">${escapeHtml(win.title)}</span>
       </div>
       <div class="card-actions">
+        <button class="icon-btn" title="Controles do Terminal (estilo Orca)" data-role="control-toggle">🎮</button>
         <button class="icon-btn" title="Ocultar/Exibir no monitor do Acer" data-role="ghost">👁️</button>
         <button class="icon-btn" title="Alternar WebRTC / MJPEG" data-role="mode">⚡</button>
         <button class="icon-btn" title="Pausar/Iniciar" data-role="toggle">⏸</button>
@@ -205,6 +206,25 @@ function buildCard(key, win) {
         <div class="overlay-spinner" data-role="spinner"></div>
         <span data-role="overlay-text">Conectando…</span>
         <button class="btn btn-primary btn-sm hidden" data-role="overlay-action">▶ Retomar</button>
+      </div>
+    </div>
+    <!-- Painel de Controles da Janela / Terminal (estilo Orca CLI) -->
+    <div class="card-controls hidden" data-role="control-panel">
+      <div class="control-input-row">
+        <input type="text" class="control-text-input" placeholder="Digitar comando ou prompt..." data-role="cmd-input" />
+        <button class="btn btn-primary btn-sm" data-role="cmd-send" title="Enviar com Enter">Enviar ↵</button>
+      </div>
+      <div class="control-quick-keys">
+        <button class="key-pill key-action" data-key="Return" title="Enter">↵ Enter</button>
+        <button class="key-pill key-danger" data-key="ctrl+c" title="Interromper processo">Ctrl+C</button>
+        <button class="key-pill" data-key="ctrl+z" title="Suspender processo">Ctrl+Z</button>
+        <button class="key-pill" data-key="ctrl+l" title="Limpar terminal">Ctrl+L</button>
+        <button class="key-pill" data-key="Escape" title="Esc / Sair">Esc</button>
+        <button class="key-pill" data-key="Tab" title="Completar / Tab">Tab</button>
+        <button class="key-pill" data-key="Up" title="Histórico Anterior">↑</button>
+        <button class="key-pill" data-key="Down" title="Histórico Posterior">↓</button>
+        <button class="key-pill" data-key="BackSpace" title="Apagar">⌫</button>
+        <button class="key-pill key-foco" data-role="btn-foco" title="Trazer janela para frente no Acer">🎯 Focar</button>
       </div>
     </div>
   `;
@@ -280,6 +300,97 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
   card.querySelector('[data-role="full"]').addEventListener("click", () => toggleFullscreen(key));
   card.querySelector('[data-role="ghost"]').addEventListener("click", () => toggleGhostWorkspace(key));
   card.querySelector('[data-role="mode"]').addEventListener("click", () => toggleStreamProtocol(key));
+  
+  // Toggle painel de controles interativos
+  const ctrlPanel = card.querySelector('[data-role="control-panel"]');
+  const ctrlToggleBtn = card.querySelector('[data-role="control-toggle"]');
+  ctrlToggleBtn.addEventListener("click", () => {
+    const isHidden = ctrlPanel.classList.toggle("hidden");
+    ctrlToggleBtn.classList.toggle("active", !isHidden);
+    if (!isHidden) {
+      const input = card.querySelector('[data-role="cmd-input"]');
+      if (input) input.focus();
+    }
+  });
+
+  // Envio de texto / prompt (estilo orca terminal send)
+  const cmdInput = card.querySelector('[data-role="cmd-input"]');
+  const cmdSendBtn = card.querySelector('[data-role="cmd-send"]');
+  const doSendText = async () => {
+    const val = cmdInput.value;
+    if (!val) return;
+    cmdInput.disabled = true;
+    cmdSendBtn.disabled = true;
+    try {
+      await fetch(`/api/windows/${s.winData.id_hex}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: val, enter: true }),
+      });
+      cmdInput.value = "";
+    } catch (e) {
+      console.error("Erro ao enviar comando:", e);
+    } finally {
+      cmdInput.disabled = false;
+      cmdSendBtn.disabled = false;
+      cmdInput.focus();
+    }
+  };
+
+  cmdSendBtn.addEventListener("click", doSendText);
+  cmdInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      doSendText();
+    }
+  });
+
+  // Envio de teclas rápidas (Enter, Ctrl+C, Ctrl+L, Esc, Up, Down, Tab...)
+  card.querySelectorAll('.key-pill[data-key]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const keyCombo = btn.getAttribute("data-key");
+      btn.style.transform = "scale(0.92)";
+      setTimeout(() => btn.style.transform = "", 150);
+      try {
+        await fetch(`/api/windows/${s.winData.id_hex}/key`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: keyCombo }),
+        });
+      } catch (e) {
+        console.error("Erro ao enviar tecla:", e);
+      }
+    });
+  });
+
+  // Botão Focar Janela
+  const btnFoco = card.querySelector('[data-role="btn-foco"]');
+  if (btnFoco) {
+    btnFoco.addEventListener("click", async () => {
+      try {
+        await fetch(`/api/windows/${s.winData.id_hex}/activate`, { method: "POST" });
+      } catch (e) {}
+    });
+  }
+
+  // Interação de Clique na Área de Vídeo/Stream
+  const videoWrapper = card.querySelector('.video-wrapper');
+  videoWrapper.addEventListener("click", async (e) => {
+    // Se o painel de controles estiver aberto, permite clicar na tela para posicionar o foco ou clicar em botões
+    if (ctrlPanel.classList.contains("hidden")) return;
+    const rect = videoWrapper.getBoundingClientRect();
+    const xPct = (e.clientX - rect.left) / rect.width;
+    const yPct = (e.clientY - rect.top) / rect.height;
+    if (xPct < 0 || xPct > 1 || yPct < 0 || yPct > 1) return;
+    try {
+      await fetch(`/api/windows/${s.winData.id_hex}/click`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ x: xPct, y: yPct, button: 1 }),
+      });
+    } catch (err) {}
+  });
+
   // Um único handler para o botão do overlay: o rótulo muda com o estado.
   card.querySelector('[data-role="overlay-action"]').addEventListener("click", () => {
     if (s.state === "paused") toggleStreamCard(key);
