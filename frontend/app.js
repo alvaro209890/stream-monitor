@@ -211,15 +211,7 @@ async function addStreamCard(win) {
   const btnClose = card.querySelector(`#btnClose_${win.id_hex}`);
   const btnResume = card.querySelector(`#btnResume_${win.id_hex}`);
 
-  btnFull.addEventListener("click", () => {
-    if (videoEl.requestFullscreen) {
-      videoEl.requestFullscreen();
-    } else if (videoEl.webkitRequestFullscreen) {
-      videoEl.webkitRequestFullscreen();
-    } else if (card.requestFullscreen) {
-      card.requestFullscreen();
-    }
-  });
+  btnFull.addEventListener("click", () => toggleFullscreen(win.id_hex));
 
   btnClose.addEventListener("click", () => closeStreamCard(win.id_hex));
   btnToggle.addEventListener("click", () => toggleStreamCard(win.id_hex));
@@ -241,6 +233,67 @@ async function addStreamCard(win) {
 
   await startWebRtcStream(win.id_hex);
 }
+
+// Botão Tela Cheia (Fullscreen Nativo + Fallback Imersivo Mobile/iOS)
+function toggleFullscreen(winIdHex) {
+  const session = activeSessions[winIdHex];
+  if (!session) return;
+
+  const card = session.cardEl;
+  const videoEl = session.videoEl;
+  const btnFull = document.getElementById(`btnFull_${winIdHex}`);
+
+  // Se já está no modo fullscreen CSS
+  if (card.classList.contains("fullscreen-mode")) {
+    card.classList.remove("fullscreen-mode");
+    if (btnFull) btnFull.textContent = "⛶";
+    if (document.exitFullscreen && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) {
+      document.webkitExitFullscreen().catch(() => {});
+    }
+    return;
+  }
+
+  // Tenta Fullscreen API nativa
+  let nativeSuccess = false;
+  try {
+    if (card.requestFullscreen) {
+      card.requestFullscreen().then(() => { nativeSuccess = true; }).catch(() => {});
+    } else if (videoEl.webkitEnterFullscreen) {
+      // iOS Safari vídeo nativo
+      videoEl.webkitEnterFullscreen();
+      return;
+    } else if (card.webkitRequestFullscreen) {
+      card.webkitRequestFullscreen();
+      nativeSuccess = true;
+    }
+  } catch (e) {}
+
+  // Modo CSS Imersivo de alta compatibilidade Mobile/PWA
+  card.classList.add("fullscreen-mode");
+  if (btnFull) btnFull.textContent = "🗗";
+}
+
+// Escuta mudanças de fullscreen nativo (Esc ou swipe) para sincronizar classe
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement) {
+    document.querySelectorAll(".window-card.fullscreen-mode").forEach(card => {
+      card.classList.remove("fullscreen-mode");
+      const btn = card.querySelector("[id^='btnFull_']");
+      if (btn) btn.textContent = "⛶";
+    });
+  }
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  if (!document.webkitFullscreenElement) {
+    document.querySelectorAll(".window-card.fullscreen-mode").forEach(card => {
+      card.classList.remove("fullscreen-mode");
+      const btn = card.querySelector("[id^='btnFull_']");
+      if (btn) btn.textContent = "⛶";
+    });
+  }
+});
 
 // Botão Ocultar / Mostrar no monitor físico (Workspace Fantasma)
 async function toggleGhostWorkspace(winIdHex) {
