@@ -28,6 +28,7 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
 | [**`03-STACK-E-TECNOLOGIAS.md`**](./03-STACK-E-TECNOLOGIAS.md) | Opções de stack recomendadas (Python `aiortc` vs Node.js + `go2rtc` / MediaMTX), frontend SPA, botões de ação e players. |
 | [**`04-INFRA-E-DEPLOY-CURSAR.md`**](./04-INFRA-E-DEPLOY-CURSAR.md) | Portas no Acer, configuração de Cloudflare Tunnel para `stream.cursar.space`, systemd units. |
 | [**`05-ROADMAP-E-TASKS.md`**](./05-ROADMAP-E-TASKS.md) | Checklist e fases de implementação prontas para um agente de IA executar. |
+| [**`06-PERSISTENCIA-E-RESILIENCIA.md`**](./06-PERSISTENCIA-E-RESILIENCIA.md) | Persistência do layout, watchdog anti-congelamento, fallback automático, auto-update sem Ctrl+F5 e higiene de sessões. |
 
 ---
 
@@ -50,3 +51,9 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
 - [x] Fase 3: Frontend Grid com seletor de janelas e botões de Start/Stop
 - [x] Fase 4: Integração com Cloudflare Tunnel (`stream.cursar.space`)
 - [x] Fase 5: Configuração e validação de Autostart no boot do sistema (`systemd --user`)
+- [x] Fase 6: Persistência de layout, resiliência e auto-update ([`06-PERSISTENCIA-E-RESILIENCIA.md`](./06-PERSISTENCIA-E-RESILIENCIA.md))
+  - Cards sobrevivem a fechar/reabrir o site — inclusive quando o iOS mata o Web App
+  - Watchdog reinicia stream congelado; voltar do segundo plano mostra o instante atual
+  - Fallback automático WebRTC → MJPEG quando a rede não permite conexão direta
+  - Build id automático: nunca mais é preciso Ctrl+F5
+  - Reaper de sessões abandonadas — fim do ffmpeg órfão

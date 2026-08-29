@@ -12,10 +12,13 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0d1117">
 
-  <!-- Anti-Cache & Auto-Update -->
+  <!-- Anti-Cache & Auto-Update.
+       O servidor substitui __BUILD__ por um hash dos assets. O app compara esse
+       valor com /api/version e se recarrega sozinho: nunca precisa de Ctrl+F5. -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
+  <script>window.STREAM_MONITOR_BUILD = "__BUILD__";</script>
 
   <!-- Icons -->
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
@@ -24,7 +27,7 @@
   <link rel="apple-touch-icon" sizes="512x512" href="/static/apple-touch-icon.png">
   <link rel="manifest" href="/static/manifest.json">
 
-  <link rel="stylesheet" href="/static/styles.css?v=20260828_v5">
+  <link rel="stylesheet" href="/static/styles.css?v=__BUILD__">
 </head>
 <body>
   <!-- Header Topo -->
@@ -126,6 +129,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20260828_v5"></script>
+  <script src="/static/app.js?v=__BUILD__"></script>
 </body>
 </html>

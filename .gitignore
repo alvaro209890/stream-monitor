@@ -1,0 +1,7 @@
+# Ambiente Python local
+.venv/
+__pycache__/
+*.py[cod]
+
+# Artefatos de execução
+*.log
