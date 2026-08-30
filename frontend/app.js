@@ -191,6 +191,7 @@ function buildCard(key, win) {
         <span class="card-title" data-role="title" title="${escapeHtml(win.title)}">${escapeHtml(win.title)}</span>
       </div>
       <div class="card-actions">
+        <button class="icon-btn" title="Zoom e Pan" data-role="zoom-toggle">🔍</button>
         <button class="icon-btn" title="Controles do Terminal (estilo Orca)" data-role="control-toggle">🎮</button>
         <button class="icon-btn" title="Ocultar/Exibir no monitor do Acer" data-role="ghost">👁️</button>
         <button class="icon-btn" title="Alternar WebRTC / MJPEG" data-role="mode">⚡</button>
@@ -200,8 +201,11 @@ function buildCard(key, win) {
       </div>
     </div>
     <div class="video-wrapper">
-      <video data-role="video" autoplay playsinline muted webkit-playsinline></video>
-      <img data-role="mjpeg" class="hidden" style="width:100%;height:100%;object-fit:contain;pointer-events:none;" />
+      <div class="zoom-container" data-role="zoom-container">
+        <video data-role="video" autoplay playsinline muted webkit-playsinline></video>
+        <img data-role="mjpeg" class="hidden" style="width:100%;height:100%;object-fit:contain;pointer-events:none;" />
+      </div>
+      <div class="zoom-badge hidden" data-role="zoom-badge">1.0x</div>
       <div class="card-overlay hidden" data-role="overlay">
         <div class="overlay-spinner" data-role="spinner"></div>
         <span data-role="overlay-text">Conectando…</span>
@@ -277,6 +281,11 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
     cardEl: card,
     videoEl: card.querySelector('[data-role="video"]'),
     mjpegEl: card.querySelector('[data-role="mjpeg"]'),
+    zoomContainerEl: card.querySelector('[data-role="zoom-container"]'),
+    zoomBadgeEl: card.querySelector('[data-role="zoom-badge"]'),
+    zoomScale: 1,
+    zoomPanX: 0,
+    zoomPanY: 0,
     mode: (saved && saved.mode === "mjpeg") ? "mjpeg" : "webrtc",
     paused: !!(saved && saved.paused),
     inGhostWorkspace: !!(saved && saved.ghost),
@@ -373,11 +382,20 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
     });
   }
 
+  // Zoom & Pan Toggle e Handlers
+  const zoomToggleBtn = card.querySelector('[data-role="zoom-toggle"]');
+  zoomToggleBtn.addEventListener("click", () => {
+    cycleZoom(key);
+  });
+
+  setupZoomInteractions(key);
+
   // Interação de Clique na Área de Vídeo/Stream
   const videoWrapper = card.querySelector('.video-wrapper');
   videoWrapper.addEventListener("click", async (e) => {
-    // Se o painel de controles estiver aberto, permite clicar na tela para posicionar o foco ou clicar em botões
+    // Se o painel de controles estiver aberto e não estiver com zoom ativo ou clicou fora, envia clique
     if (ctrlPanel.classList.contains("hidden")) return;
+    if (s.zoomScale > 1.05) return; // Evita clique acidental no host durante zoom/pan
     const rect = videoWrapper.getBoundingClientRect();
     const xPct = (e.clientX - rect.left) / rect.width;
     const yPct = (e.clientY - rect.top) / rect.height;
@@ -765,6 +783,170 @@ async function toggleGhostWorkspace(key) {
     s.inGhostWorkspace = !s.inGhostWorkspace;
     console.error("Erro ao mover janela de workspace:", err);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Zoom & Pan Interativo nos Cards
+// ---------------------------------------------------------------------------
+
+function updateZoomTransform(key, transition = true) {
+  const s = sessions[key];
+  if (!s || !s.zoomContainerEl) return;
+
+  // Limita o Pan para não sumir com o vídeo
+  const maxPanPct = Math.max(0, (s.zoomScale - 1) * 50); // % relativa
+  s.zoomPanX = Math.max(-maxPanPct, Math.min(maxPanPct, s.zoomPanX));
+  s.zoomPanY = Math.max(-maxPanPct, Math.min(maxPanPct, s.zoomPanY));
+
+  s.zoomContainerEl.style.transition = transition ? "transform 0.15s ease-out" : "none";
+  s.zoomContainerEl.style.transform = `scale(${s.zoomScale}) translate(${s.zoomPanX / s.zoomScale}%, ${s.zoomPanY / s.zoomScale}%)`;
+
+  const badge = s.zoomBadgeEl;
+  const zoomBtn = s.cardEl.querySelector('[data-role="zoom-toggle"]');
+  if (s.zoomScale > 1.05) {
+    if (badge) {
+      badge.textContent = `${s.zoomScale.toFixed(1)}x`;
+      badge.classList.remove("hidden");
+    }
+    if (zoomBtn) zoomBtn.classList.add("active");
+  } else {
+    if (badge) badge.classList.add("hidden");
+    if (zoomBtn) zoomBtn.classList.remove("active");
+  }
+}
+
+function setZoom(key, scale, panX = 0, panY = 0, transition = true) {
+  const s = sessions[key];
+  if (!s) return;
+  s.zoomScale = Math.max(1, Math.min(5, scale));
+  s.zoomPanX = s.zoomScale === 1 ? 0 : panX;
+  s.zoomPanY = s.zoomScale === 1 ? 0 : panY;
+  updateZoomTransform(key, transition);
+}
+
+function cycleZoom(key) {
+  const s = sessions[key];
+  if (!s) return;
+  const levels = [1, 1.75, 2.5, 3.5];
+  let nextIdx = 0;
+  for (let i = 0; i < levels.length; i++) {
+    if (s.zoomScale < levels[i] - 0.1) {
+      nextIdx = i;
+      break;
+    }
+  }
+  const nextScale = levels[nextIdx] || 1;
+  setZoom(key, nextScale, nextScale === 1 ? 0 : s.zoomPanX, nextScale === 1 ? 0 : s.zoomPanY, true);
+}
+
+function setupZoomInteractions(key) {
+  const s = sessions[key];
+  if (!s || !s.cardEl) return;
+  const wrapper = s.cardEl.querySelector('.video-wrapper');
+  if (!wrapper) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+  let initPanX = 0;
+  let initPanY = 0;
+  let initialPinchDistance = 0;
+  let initialPinchScale = 1;
+
+  // Suporte a Pinch-to-Zoom e Arraste no Mobile / Touch
+  wrapper.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 2) {
+      // Início do Pinch
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialPinchDistance = Math.hypot(dx, dy);
+      initialPinchScale = s.zoomScale;
+    } else if (e.touches.length === 1 && s.zoomScale > 1.05) {
+      // Início do Arraste de Pan com zoom ativo
+      isDragging = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      initPanX = s.zoomPanX;
+      initPanY = s.zoomPanY;
+    }
+  }, { passive: true });
+
+  wrapper.addEventListener("touchmove", (e) => {
+    if (e.touches.length === 2 && initialPinchDistance > 0) {
+      // Pinching
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const factor = dist / initialPinchDistance;
+      const newScale = Math.max(1, Math.min(5, initialPinchScale * factor));
+      setZoom(key, newScale, s.zoomPanX, s.zoomPanY, false);
+      e.preventDefault();
+    } else if (e.touches.length === 1 && isDragging && s.zoomScale > 1.05) {
+      // Panning
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      const rect = wrapper.getBoundingClientRect();
+      // Converte pixels em porcentagem relativa ao wrapper
+      const pctX = (dx / rect.width) * 100;
+      const pctY = (dy / rect.height) * 100;
+      s.zoomPanX = initPanX + pctX;
+      s.zoomPanY = initPanY + pctY;
+      updateZoomTransform(key, false);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  wrapper.addEventListener("touchend", (e) => {
+    if (e.touches.length < 2) {
+      initialPinchDistance = 0;
+    }
+    if (e.touches.length === 0) {
+      isDragging = false;
+      updateZoomTransform(key, true);
+    }
+  });
+
+  // Duplo toque para dar zoom rápido / resetar
+  let lastTap = 0;
+  wrapper.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTap < 300 && e.changedTouches.length === 1) {
+      const rect = wrapper.getBoundingClientRect();
+      const touch = e.changedTouches[0];
+      const relX = (touch.clientX - rect.left) / rect.width;
+      const relY = (touch.clientY - rect.top) / rect.height;
+      if (s.zoomScale > 1.05) {
+        setZoom(key, 1, 0, 0, true);
+      } else {
+        const panX = (0.5 - relX) * 100;
+        const panY = (0.5 - relY) * 100;
+        setZoom(key, 2.5, panX, panY, true);
+      }
+    }
+    lastTap = now;
+  });
+
+  // Suporte a Mouse Wheel para zoom no desktop
+  wrapper.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.25 : -0.25;
+    const newScale = Math.max(1, Math.min(5, s.zoomScale + delta));
+    setZoom(key, newScale, s.zoomPanX, s.zoomPanY, true);
+  }, { passive: false });
+
+  // Duplo clique com mouse
+  wrapper.addEventListener("dblclick", (e) => {
+    const rect = wrapper.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) / rect.width;
+    const relY = (e.clientY - rect.top) / rect.height;
+    if (s.zoomScale > 1.05) {
+      setZoom(key, 1, 0, 0, true);
+    } else {
+      const panX = (0.5 - relX) * 100;
+      const panY = (0.5 - relY) * 100;
+      setZoom(key, 2.5, panX, panY, true);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

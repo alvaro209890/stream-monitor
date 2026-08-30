@@ -57,3 +57,6 @@ Esta pasta contém toda a especificação técnica detalhada, mapeamento do hard
   - Fallback automático WebRTC → MJPEG quando a rede não permite conexão direta
   - Build id automático: nunca mais é preciso Ctrl+F5
   - Reaper de sessões abandonadas — fim do ffmpeg órfão
+- [x] Fase 7: Controles Interativos & Zoom Mobile-First
+  - 🔍 **Zoom & Pan em qualquer janela:** botão `🔍` no card para ciclar níveis de ampliação (1x, 1.75x, 2.5x, 3.5x), suporte nativo a pinch-to-zoom com 2 dedos, duplo toque para zoom/reset, arraste (pan) para navegar na tela ampliada e badge visual com o fator de zoom atual.
+  - 🎮 **Controles interativos estilo Orca CLI:** envio de comandos via Enter (preservando UTF-8 via `xclip`), pílulas de atalhos rápidos (`Ctrl+C`, `Ctrl+Z`, `Ctrl+L`, `Esc`, `Tab`, `↑`, `↓`, `⌫`) e clique direcionado.
