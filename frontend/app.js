@@ -738,8 +738,10 @@ async function closeStreamCard(key) {
   s.cardEl.remove();
   delete sessions[key];
   updateEmptyState();
+  applyFilterByNode();
   saveLayout();
 }
+
 
 async function toggleStreamCard(key) {
   const s = sessions[key];
@@ -1174,10 +1176,12 @@ function switchActiveNode(nodeId) {
   activeNode = nodeId;
   localStorage.setItem(ACTIVE_NODE_KEY, activeNode);
   updateNodeTabsUi();
+  applyFilterByNode();
   fetchWindows(activeNode);
   pollMetrics();
   saveLayout();
 }
+
 
 if (tabNodeAcer) tabNodeAcer.addEventListener("click", () => switchActiveNode("acer"));
 if (tabNodeServer) tabNodeServer.addEventListener("click", () => switchActiveNode("server"));
@@ -1279,11 +1283,25 @@ function renderWindowList(windows) {
 }
 
 
+function applyFilterByNode() {
+  for (const s of Object.values(sessions)) {
+    const cardNode = s.winData.node || "acer";
+    if (cardNode === activeNode) {
+      s.cardEl.classList.remove("hidden");
+    } else {
+      s.cardEl.classList.add("hidden");
+    }
+  }
+  updateEmptyState();
+}
+
 function updateEmptyState() {
   if (emptyState) {
-    emptyState.style.display = Object.keys(sessions).length === 0 ? "flex" : "none";
+    const visibleCards = Object.values(sessions).filter(s => (s.winData.node || "acer") === activeNode);
+    emptyState.style.display = visibleCards.length === 0 ? "flex" : "none";
   }
 }
+
 
 function applyMasterUi() {
   const icon = masterStreaming ? "⏹" : "▶";
@@ -1387,7 +1405,9 @@ async function boot() {
   }
   restoring = false;
   saveLayout();
+  applyFilterByNode();
   updateEmptyState();
+
 
   pollMetrics();
   setInterval(pollMetrics, METRICS_INTERVAL_MS);
