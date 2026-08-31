@@ -39,9 +39,15 @@
           <h1>Stream Monitor</h1>
           <div class="connection-status">
             <span class="status-dot online" id="statusDot"></span>
-            <span id="statusText">Host Acer Online</span>
+            <span id="statusText">Cluster Online</span>
           </div>
         </div>
+      </div>
+
+      <!-- Seletor de Máquina / Host (Mobile-Friendly Pill Switcher) -->
+      <div class="node-switcher" id="nodeSwitcher">
+        <button class="node-tab active" data-node="acer" id="tabNodeAcer">💻 Acer</button>
+        <button class="node-tab" data-node="server" id="tabNodeServer">🖥️ Server</button>
       </div>
 
       <div class="header-actions">
@@ -83,7 +89,7 @@
     <div class="empty-state" id="emptyState">
       <div class="empty-icon">📺</div>
       <h3>Nenhuma janela sendo transmitida</h3>
-      <p>Toque em <b>"+ Adicionar"</b> para escolher janelas do Acer.</p>
+      <p>Toque em <b>"+ Adicionar"</b> para escolher janelas do <span id="emptyNodeName">Acer</span>.</p>
       <button class="btn btn-primary btn-lg" id="btnEmptyAdd">
         ➕ Escolher Janela
       </button>
@@ -115,8 +121,8 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <div class="modal-title-area">
-          <h3>Janelas Disponíveis no Acer</h3>
-          <span class="modal-subtitle">Selecione para transmitir ao vivo</span>
+          <h3 id="modalTitleText">Janelas Disponíveis</h3>
+          <span class="modal-subtitle" id="modalSubtitleText">Selecione para transmitir ao vivo</span>
         </div>
         <button class="icon-btn close-btn" id="btnCloseModal">✕</button>
       </div>

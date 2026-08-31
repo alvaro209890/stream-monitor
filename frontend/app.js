@@ -11,9 +11,13 @@
  *     sozinho quando há versão nova.
  */
 
-const STORAGE_KEY = "streammonitor.layout.v2";
+const STORAGE_KEY = "streammonitor.layout.v3";
 const CLIENT_ID_KEY = "streammonitor.client_id";
+const ACTIVE_NODE_KEY = "streammonitor.active_node";
 const BUILD = window.STREAM_MONITOR_BUILD || "dev";
+
+let activeNode = localStorage.getItem(ACTIVE_NODE_KEY) || "acer";
+
 
 /**
  * Identidade estável deste dispositivo. O servidor usa (cliente, card) para
@@ -62,7 +66,9 @@ const $ = (id) => document.getElementById(id);
 
 const gridContainer = $("gridContainer");
 const emptyState = $("emptyState");
+const emptyNodeName = $("emptyNodeName");
 const modalBackdrop = $("modalBackdrop");
+const modalTitleText = $("modalTitleText");
 const windowListContainer = $("windowListContainer");
 const statusDot = $("statusDot");
 const statusText = $("statusText");
@@ -75,6 +81,9 @@ const masterIcon = $("masterIcon");
 const masterText = $("masterText");
 const bottomMasterIcon = $("bottomMasterIcon");
 const bottomMasterText = $("bottomMasterText");
+const tabNodeAcer = $("tabNodeAcer");
+const tabNodeServer = $("tabNodeServer");
+
 
 // ---------------------------------------------------------------------------
 // Persistência
@@ -100,6 +109,8 @@ function saveLayout() {
   try {
     const cards = Object.values(sessions).map((s) => ({
       key: s.key,
+      node: s.winData.node || activeNode,
+      node_name: s.winData.node_name || (activeNode === "server" ? "Server-Desktop" : "Acer-Notebook"),
       id_hex: s.winData.id_hex,
       id_dec: s.winData.id_dec,
       title: s.winData.title,
@@ -115,12 +126,13 @@ function saveLayout() {
       ghost: s.inGhostWorkspace,
     }));
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      fps: globalFps, master: masterStreaming, cards, savedAt: Date.now(),
+      fps: globalFps, master: masterStreaming, activeNode, cards, savedAt: Date.now(),
     }));
   } catch (e) {
     console.warn("Não foi possível salvar o layout:", e);
   }
 }
+
 
 // ---------------------------------------------------------------------------
 // Reconciliação de janelas
@@ -153,13 +165,14 @@ function resolveWindow(saved, windows) {
   return null;
 }
 
-async function fetchWindows() {
+async function fetchWindows(targetNode = null) {
+  const node = targetNode || activeNode;
   try {
-    const res = await fetch("/api/windows", { cache: "no-store" });
+    const res = await fetch(`/api/windows?node=${encodeURIComponent(node)}`, { cache: "no-store" });
     if (!res.ok) return knownWindows;
     const data = await res.json();
     knownWindows = data.windows || [];
-    setOnline(true);
+    setOnline(!data.offline);
   } catch (e) {
     setOnline(false);
   }
@@ -169,8 +182,10 @@ async function fetchWindows() {
 function setOnline(ok) {
   if (!statusDot) return;
   statusDot.classList.toggle("online", ok);
-  if (statusText) statusText.textContent = ok ? "Host Acer Online" : "Reconectando ao Acer…";
+  const nodeName = activeNode === "server" ? "Server-Desktop" : "Acer-Notebook";
+  if (statusText) statusText.textContent = ok ? `Host ${nodeName} Online` : `Reconectando ao ${nodeName}…`;
 }
+
 
 // ---------------------------------------------------------------------------
 // Ciclo de vida de um card
@@ -325,6 +340,8 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
   // Envio de texto / prompt (estilo orca terminal send)
   const cmdInput = card.querySelector('[data-role="cmd-input"]');
   const cmdSendBtn = card.querySelector('[data-role="cmd-send"]');
+  const cardNode = s.winData.node || activeNode;
+
   const doSendText = async () => {
     const val = cmdInput.value;
     if (!val) return;
@@ -334,7 +351,7 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
       await fetch(`/api/windows/${s.winData.id_hex}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: val, enter: true }),
+        body: JSON.stringify({ text: val, enter: true, node: cardNode }),
       });
       cmdInput.value = "";
     } catch (e) {
@@ -364,7 +381,7 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
         await fetch(`/api/windows/${s.winData.id_hex}/key`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: keyCombo }),
+          body: JSON.stringify({ key: keyCombo, node: cardNode }),
         });
       } catch (e) {
         console.error("Erro ao enviar tecla:", e);
@@ -377,7 +394,7 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
   if (btnFoco) {
     btnFoco.addEventListener("click", async () => {
       try {
-        await fetch(`/api/windows/${s.winData.id_hex}/activate`, { method: "POST" });
+        await fetch(`/api/windows/${s.winData.id_hex}/activate?node=${encodeURIComponent(cardNode)}`, { method: "POST" });
       } catch (e) {}
     });
   }
@@ -404,10 +421,11 @@ async function addStreamCard(win, savedKey, saved, allowDuplicate) {
       await fetch(`/api/windows/${s.winData.id_hex}/click`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ x: xPct, y: yPct, button: 1 }),
+        body: JSON.stringify({ x: xPct, y: yPct, button: 1, node: cardNode }),
       });
     } catch (err) {}
   });
+
 
   // Um único handler para o botão do overlay: o rótulo muda com o estado.
   card.querySelector('[data-role="overlay-action"]').addEventListener("click", () => {
@@ -496,7 +514,9 @@ async function startMjpegStream(key) {
 
   const ctrl = new AbortController();
   s.mjpegAbort = ctrl;
-  const url = `/api/windows/${s.winData.id_dec}/mjpeg?fps=${globalFps}&t=${Date.now()}`;
+  const cardNode = s.winData.node || activeNode;
+  const url = `/api/windows/${s.winData.id_dec}/mjpeg?fps=${globalFps}&node=${encodeURIComponent(cardNode)}&t=${Date.now()}`;
+
 
   try {
     const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
@@ -575,7 +595,9 @@ async function startWebRtcStream(key) {
   s.lastFrameAt = 0;
   s.lastVideoTime = -1;
   s.disconnectedAt = 0;
-  setCardState(key, "connecting", "Conectando ao Acer…");
+  const cardNode = s.winData.node || activeNode;
+  const cardNodeName = cardNode === "server" ? "Server" : "Acer";
+  setCardState(key, "connecting", `Conectando ao ${cardNodeName}…`);
   s.mjpegEl.classList.add("hidden");
   stopMjpegStream(s);
   s.videoEl.classList.remove("hidden");
@@ -599,17 +621,10 @@ async function startWebRtcStream(key) {
     if (state === "connected") {
       s.restarts = 0;
       s.disconnectedAt = 0;
-      // NÃO marcar lastFrameAt aqui: "connected" é só o transporte de pé.
-      // lastFrameAt significa "chegou imagem de verdade" — é o que distingue
-      // um congelamento de uma conexão que nunca entregou vídeo, e é o que
-      // arma o fallback para MJPEG. O watchdog promove para "live" quando o
-      // currentTime do vídeo começar a andar.
       setCardState(key, "connecting", "Conectado, aguardando imagem…");
     } else if (state === "failed" || state === "closed") {
       if (!s.paused) restartStream(key, `webrtc ${state}`);
     } else if (state === "disconnected") {
-      // Transitório na maioria das vezes (troca de Wi-Fi para 4G, por exemplo).
-      // Marca a hora e deixa o watchdog decidir se virou queda de verdade.
       s.disconnectedAt = Date.now();
       setCardState(key, "connecting", "Reconectando…");
     }
@@ -628,6 +643,7 @@ async function startWebRtcStream(key) {
         type: pc.localDescription.type,
         window_id: s.winData.id_dec,
         window_id_hex: s.winData.id_hex,
+        node: cardNode,
         x: s.winData.x, y: s.winData.y,
         width: s.winData.width, height: s.winData.height,
         fps: globalFps,
@@ -635,6 +651,7 @@ async function startWebRtcStream(key) {
         card_key: key,
       }),
     });
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const answer = await res.json();
@@ -1146,21 +1163,42 @@ async function checkForNewBuild() {
 // Métricas, keepalive e seletor de janelas
 // ---------------------------------------------------------------------------
 
+function updateNodeTabsUi() {
+  if (tabNodeAcer) tabNodeAcer.classList.toggle("active", activeNode === "acer");
+  if (tabNodeServer) tabNodeServer.classList.toggle("active", activeNode === "server");
+  if (emptyNodeName) emptyNodeName.textContent = activeNode === "server" ? "Server" : "Acer";
+}
+
+function switchActiveNode(nodeId) {
+  if (activeNode === nodeId) return;
+  activeNode = nodeId;
+  localStorage.setItem(ACTIVE_NODE_KEY, activeNode);
+  updateNodeTabsUi();
+  fetchWindows(activeNode);
+  pollMetrics();
+  saveLayout();
+}
+
+if (tabNodeAcer) tabNodeAcer.addEventListener("click", () => switchActiveNode("acer"));
+if (tabNodeServer) tabNodeServer.addEventListener("click", () => switchActiveNode("server"));
+
 async function pollMetrics() {
   try {
-    const res = await fetch("/api/system/stats", { cache: "no-store" });
+    const res = await fetch(`/api/system/stats?node=${encodeURIComponent(activeNode)}`, { cache: "no-store" });
     if (!res.ok) { setOnline(false); return; }
     const data = await res.json();
-    setOnline(true);
+    setOnline(!data.offline);
     if (valCpu) valCpu.textContent = `${data.cpu_usage}%`;
     if (valRam) valRam.textContent = `${data.memory_percent}%`;
     if (valStreams) valStreams.textContent = `${data.active_streams}`;
     if (Array.isArray(data.windows)) knownWindows = data.windows;
 
-    // Janela fechada no Acer não apaga o card: ele passa a aguardar o retorno.
+    // Janela fechada não apaga o card: ele passa a aguardar o retorno.
     const alive = new Set((data.active_window_ids || []).map((id) => id.toLowerCase()));
     for (const key of Object.keys(sessions)) {
       const s = sessions[key];
+      const cardNode = s.winData.node || activeNode;
+      if (cardNode !== activeNode) continue; // Só reconcilia métricas do nó ativo no momento
       if (s.state === "waiting") continue;
       if (!alive.has((s.winData.id_hex || "").toLowerCase())) {
         const hit = resolveWindow(s.winData, knownWindows);
@@ -1168,7 +1206,8 @@ async function pollMetrics() {
         else {
           await teardownPeer(s);
           stopMjpegStream(s);
-          setCardState(key, "waiting", "Janela não está aberta no Acer — aguardando…", "✕ Remover card");
+          const nodeName = cardNode === "server" ? "Server" : "Acer";
+          setCardState(key, "waiting", `Janela não está aberta no ${nodeName} — aguardando…`, "✕ Remover card");
         }
       }
     }
@@ -1176,6 +1215,7 @@ async function pollMetrics() {
     setOnline(false);
   }
 }
+
 
 async function sendKeepalive() {
   const ids = Object.values(sessions).map((s) => s.sessionId).filter(Boolean);
@@ -1200,19 +1240,22 @@ async function sendKeepalive() {
 
 async function openWindowPicker() {
   modalBackdrop.classList.remove("hidden");
+  const nodeName = activeNode === "server" ? "Server-Desktop" : "Acer-Notebook";
+  if (modalTitleText) modalTitleText.textContent = `Janelas no ${nodeName}`;
   windowListContainer.innerHTML = `
-    <div class="loading-state"><div class="spinner"></div><span>Buscando janelas no X11…</span></div>`;
-  const windows = await fetchWindows();
+    <div class="loading-state"><div class="spinner"></div><span>Buscando janelas no X11 (${nodeName})…</span></div>`;
+  const windows = await fetchWindows(activeNode);
   renderWindowList(windows);
 }
 
 function renderWindowList(windows) {
+  const nodeName = activeNode === "server" ? "Server-Desktop" : "Acer-Notebook";
   if (!windows.length) {
     windowListContainer.innerHTML =
-      '<div style="text-align:center;color:var(--text-secondary);padding:30px 10px;">Nenhuma janela aberta no Acer.</div>';
+      `<div style="text-align:center;color:var(--text-secondary);padding:30px 10px;">Nenhuma janela aberta no ${nodeName} (ou host inacessível).</div>`;
     return;
   }
-  const openHex = new Set(Object.values(sessions).map((s) => (s.winData.id_hex || "").toLowerCase()));
+  const openHex = new Set(Object.values(sessions).filter(s => (s.winData.node || activeNode) === activeNode).map((s) => (s.winData.id_hex || "").toLowerCase()));
   windowListContainer.innerHTML = "";
   windows.forEach((win) => {
     const isOpen = openHex.has(win.id_hex.toLowerCase());
@@ -1221,17 +1264,20 @@ function renderWindowList(windows) {
     item.innerHTML = `
       <div class="win-info">
         <span class="win-title">${escapeHtml(win.title)}</span>
-        <span class="win-meta"><b style="color:var(--accent-blue);">${escapeHtml(win.app_name)}</b> • PID ${win.pid} • ${win.width}x${win.height}</span>
+        <span class="win-meta"><b style="color:var(--accent-blue);">${escapeHtml(win.app_name)}</b> • ${escapeHtml(win.node_name || nodeName)} • PID ${win.pid} • ${win.width}x${win.height}</span>
       </div>
       <button class="btn btn-sm ${isOpen ? "btn-danger" : "btn-primary"}">${isOpen ? "Já Aberta" : "Monitorar"}</button>`;
     item.addEventListener("click", () => {
       if (isOpen) return;
+      win.node = activeNode;
+      win.node_name = nodeName;
       addStreamCard(win);
       modalBackdrop.classList.add("hidden");
     });
     windowListContainer.appendChild(item);
   });
 }
+
 
 function updateEmptyState() {
   if (emptyState) {
@@ -1297,10 +1343,15 @@ async function boot() {
   const layout = loadLayout();
   globalFps = layout.fps;
   masterStreaming = layout.master;
+  if (layout.activeNode) {
+    activeNode = layout.activeNode;
+  }
+  updateNodeTabsUi();
   applyFpsUi();
   applyMasterUi();
 
-  const windows = await fetchWindows();
+  const windows = await fetchWindows(activeNode);
+
 
   restoring = true;
   const seenKeys = new Set();

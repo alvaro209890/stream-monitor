@@ -57,7 +57,44 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
+  gap: 10px;
 }
+
+/* Node Switcher (Abas de Máquina: Acer / Server) */
+.node-switcher {
+  display: flex;
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.node-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.node-tab:hover {
+  color: var(--text-primary);
+}
+
+.node-tab.active {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
 
 .logo-area {
   display: flex;

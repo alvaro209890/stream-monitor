@@ -5,8 +5,10 @@ import asyncio
 import hashlib
 import subprocess
 import contextlib
+import socket
 from typing import Dict, Any, Optional, List
 
+import httpx
 import psutil
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +26,18 @@ from backend.window_manager import (
     send_click_to_window,
 )
 from backend.streamer import X11WindowStreamTrack
+
+# ---------------------------------------------------------------------------
+# Identificação do Nó / Host Atual e Par Remoto
+# ---------------------------------------------------------------------------
+HOSTNAME = socket.gethostname().lower()
+IS_SERVER = "server" in HOSTNAME
+LOCAL_NODE_ID = "server" if IS_SERVER else "acer"
+LOCAL_NODE_NAME = "Server-Desktop" if IS_SERVER else "Acer-Notebook"
+REMOTE_NODE_ID = "acer" if IS_SERVER else "server"
+REMOTE_NODE_NAME = "Acer-Notebook" if IS_SERVER else "Server-Desktop"
+REMOTE_NODE_URL = "http://100.102.202.63:3090" if IS_SERVER else "http://100.65.138.58:3090"
+
 
 # ---------------------------------------------------------------------------
 # Build ID — muda sozinho sempre que qualquer asset do frontend muda.
@@ -183,6 +197,7 @@ class OfferPayload(BaseModel):
     type: str
     window_id: int
     window_id_hex: Optional[str] = None
+    node: Optional[str] = None
     x: int = 0
     y: int = 0
     width: int = 1280
@@ -200,19 +215,64 @@ class KeepalivePayload(BaseModel):
 # API
 # ---------------------------------------------------------------------------
 
+@app.get("/api/nodes")
+def get_nodes():
+    """Retorna lista de nós disponíveis no cluster Stream Monitor."""
+    return {
+        "current_node": LOCAL_NODE_ID,
+        "nodes": [
+            {"id": "acer", "name": "Acer (Notebook)", "is_local": not IS_SERVER},
+            {"id": "server", "name": "Server (Desktop)", "is_local": IS_SERVER},
+        ],
+        "build": compute_build_id()
+    }
+
+
 @app.get("/api/version")
 def get_version():
     """O frontend compara isso com o build que carregou e se recarrega sozinho."""
-    return {"build": compute_build_id(), "server_time": time.time()}
+    return {"build": compute_build_id(), "server_time": time.time(), "node": LOCAL_NODE_ID}
 
 
 @app.get("/api/system/stats")
-def get_system_stats():
-    """Métricas de hardware do Acer + janelas vivas (para reatar cards)."""
+async def get_system_stats(node: Optional[str] = None):
+    """Métricas de hardware + janelas vivas (local ou proxy remoto)."""
+    target_node = (node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.get(f"{REMOTE_NODE_URL}/api/system/stats")
+                if res.status_code == 200:
+                    data = res.json()
+                    data["proxied"] = True
+                    data["node"] = target_node
+                    return data
+        except Exception as e:
+            # Fallback se o nó remoto estiver offline
+            return {
+                "build": compute_build_id(),
+                "node": target_node,
+                "offline": True,
+                "error": f"Nó {target_node} inacessível: {e}",
+                "cpu_usage": 0,
+                "memory_used_mb": 0,
+                "memory_total_mb": 0,
+                "memory_percent": 0,
+                "active_streams": 0,
+                "active_window_ids": [],
+                "windows": [],
+            }
+
     mem = psutil.virtual_memory()
     active_windows = get_active_windows()
+    # Adiciona a tag do nó em cada janela
+    for w in active_windows:
+        w["node"] = LOCAL_NODE_ID
+        w["node_name"] = LOCAL_NODE_NAME
+
     return {
         "build": compute_build_id(),
+        "node": LOCAL_NODE_ID,
         "cpu_usage": psutil.cpu_percent(interval=None),
         "memory_used_mb": round(mem.used / (1024 * 1024), 1),
         "memory_total_mb": round(mem.total / (1024 * 1024), 1),
@@ -224,8 +284,26 @@ def get_system_stats():
 
 
 @app.get("/api/windows")
-def list_windows():
-    return {"windows": get_active_windows(), "build": compute_build_id()}
+async def list_windows(node: Optional[str] = None):
+    target_node = (node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.get(f"{REMOTE_NODE_URL}/api/windows")
+                if res.status_code == 200:
+                    data = res.json()
+                    for w in data.get("windows", []):
+                        w["node"] = target_node
+                        w["node_name"] = REMOTE_NODE_NAME
+                    return data
+        except Exception as e:
+            return {"windows": [], "offline": True, "error": str(e), "build": compute_build_id(), "node": target_node}
+
+    wins = get_active_windows()
+    for w in wins:
+        w["node"] = LOCAL_NODE_ID
+        w["node_name"] = LOCAL_NODE_NAME
+    return {"windows": wins, "build": compute_build_id(), "node": LOCAL_NODE_ID}
 
 
 @app.post("/api/keepalive")
@@ -240,12 +318,29 @@ async def keepalive(payload: KeepalivePayload):
             alive.append(sid)
         else:
             unknown.append(sid)
+            
+    # Também repassa keepalive pro nó remoto se houver desconhecidos locais
+    if unknown:
+        with contextlib.suppress(Exception):
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                await client.post(f"{REMOTE_NODE_URL}/api/keepalive", json={"session_ids": unknown})
+
     return {"alive": alive, "unknown": unknown, "build": compute_build_id()}
 
 
 @app.get("/api/windows/{win_id_dec}/snapshot")
-def get_window_snapshot(win_id_dec: int):
+async def get_window_snapshot(win_id_dec: int, node: Optional[str] = None):
     """Frame JPEG instantâneo — usado como pôster enquanto o WebRTC negocia."""
+    target_node = (node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.get(f"{REMOTE_NODE_URL}/api/windows/{win_id_dec}/snapshot")
+                if res.status_code == 200:
+                    return Response(content=res.content, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no nó remoto {target_node}: {exc}")
+
     cmd = [
         "ffmpeg", "-y", "-f", "x11grab",
         "-window_id", str(win_id_dec), "-i", ":0.0",
@@ -261,8 +356,25 @@ def get_window_snapshot(win_id_dec: int):
 
 
 @app.get("/api/windows/{win_id_dec}/mjpeg")
-async def get_window_mjpeg(win_id_dec: int, fps: int = 15):
+async def get_window_mjpeg(win_id_dec: int, fps: int = 15, node: Optional[str] = None):
     """Fallback MJPEG universal (funciona onde o WebRTC não vai)."""
+    target_node = (node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        async def remote_mjpeg_stream():
+            try:
+                async with httpx.AsyncClient(timeout=None) as client:
+                    async with client.stream("GET", f"{REMOTE_NODE_URL}/api/windows/{win_id_dec}/mjpeg?fps={fps}") as r:
+                        async for chunk in r.aiter_bytes():
+                            yield chunk
+            except Exception:
+                return
+
+        return StreamingResponse(
+            remote_mjpeg_stream(),
+            media_type="multipart/x-mixed-replace; boundary=ffmpeg",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
+
     fps = max(1, min(fps, 30))
 
     async def mjpeg_generator():
@@ -279,8 +391,6 @@ async def get_window_mjpeg(win_id_dec: int, fps: int = 15):
             while True:
                 if proc.stdout is None:
                     break
-                # LEITURA EM THREAD: proc.stdout.read é bloqueante e travaria
-                # o event loop inteiro (todos os outros streams e a API).
                 chunk = await loop.run_in_executor(None, proc.stdout.read, 32768)
                 if not chunk:
                     break
@@ -306,50 +416,108 @@ async def get_window_mjpeg(win_id_dec: int, fps: int = 15):
 class ControlSendPayload(BaseModel):
     text: str
     enter: bool = True
+    node: Optional[str] = None
 
 class ControlKeyPayload(BaseModel):
     key: str
+    node: Optional[str] = None
 
 class ControlClickPayload(BaseModel):
     x: float
     y: float
     button: int = 1
+    node: Optional[str] = None
 
 @app.post("/api/windows/{win_id_hex}/activate")
-def api_activate_window(win_id_hex: str):
+async def api_activate_window(win_id_hex: str, node: Optional[str] = None):
+    target_node = (node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.post(f"{REMOTE_NODE_URL}/api/windows/{win_id_hex}/activate")
+                return res.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no nó remoto {target_node}: {exc}")
+
     if not activate_window(win_id_hex):
         raise HTTPException(status_code=500, detail="Falha ao focar janela.")
-    return {"status": "ok", "action": "activate"}
+    return {"status": "ok", "action": "activate", "node": LOCAL_NODE_ID}
 
 @app.post("/api/windows/{win_id_hex}/send")
-def api_send_text(win_id_hex: str, payload: ControlSendPayload):
+async def api_send_text(win_id_hex: str, payload: ControlSendPayload):
+    target_node = (payload.node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.post(f"{REMOTE_NODE_URL}/api/windows/{win_id_hex}/send", json=payload.dict())
+                return res.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no nó remoto {target_node}: {exc}")
+
     if not send_text_to_window(win_id_hex, payload.text, payload.enter):
         raise HTTPException(status_code=500, detail="Falha ao enviar texto para janela.")
-    return {"status": "ok", "action": "send", "text_len": len(payload.text)}
+    return {"status": "ok", "action": "send", "text_len": len(payload.text), "node": LOCAL_NODE_ID}
 
 @app.post("/api/windows/{win_id_hex}/key")
-def api_send_key(win_id_hex: str, payload: ControlKeyPayload):
+async def api_send_key(win_id_hex: str, payload: ControlKeyPayload):
+    target_node = (payload.node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.post(f"{REMOTE_NODE_URL}/api/windows/{win_id_hex}/key", json=payload.dict())
+                return res.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no nó remoto {target_node}: {exc}")
+
     if not send_key_to_window(win_id_hex, payload.key):
         raise HTTPException(status_code=500, detail=f"Falha ao enviar tecla '{payload.key}' para janela.")
-    return {"status": "ok", "action": "key", "key": payload.key}
+    return {"status": "ok", "action": "key", "key": payload.key, "node": LOCAL_NODE_ID}
 
 @app.post("/api/windows/{win_id_hex}/click")
-def api_send_click(win_id_hex: str, payload: ControlClickPayload):
+async def api_send_click(win_id_hex: str, payload: ControlClickPayload):
+    target_node = (payload.node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.post(f"{REMOTE_NODE_URL}/api/windows/{win_id_hex}/click", json=payload.dict())
+                return res.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no nó remoto {target_node}: {exc}")
+
     if not send_click_to_window(win_id_hex, payload.x, payload.y, payload.button):
         raise HTTPException(status_code=500, detail="Falha ao enviar clique.")
-    return {"status": "ok", "action": "click", "x": payload.x, "y": payload.y}
+    return {"status": "ok", "action": "click", "x": payload.x, "y": payload.y, "node": LOCAL_NODE_ID}
 
 @app.post("/api/windows/{win_id_hex}/workspace")
-def move_workspace(win_id_hex: str, workspace: int = 1):
+async def move_workspace(win_id_hex: str, workspace: int = 1, node: Optional[str] = None):
+    target_node = (node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.post(f"{REMOTE_NODE_URL}/api/windows/{win_id_hex}/workspace?workspace={workspace}")
+                return res.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no nó remoto {target_node}: {exc}")
+
     if not move_window_to_workspace(win_id_hex, workspace):
         raise HTTPException(status_code=500, detail="Falha ao mover janela.")
-    return {"status": "ok", "workspace": workspace}
+    return {"status": "ok", "workspace": workspace, "node": LOCAL_NODE_ID}
 
 
 @app.post("/api/offer")
 async def rtc_offer(params: OfferPayload):
     """Sinalização WebRTC (offer -> answer) + criação do track de captura X11."""
+    target_node = (params.node or LOCAL_NODE_ID).lower()
+    if target_node != LOCAL_NODE_ID:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(f"{REMOTE_NODE_URL}/api/offer", json=params.dict())
+                return res.json()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Erro no WebRTC do nó remoto {target_node}: {exc}")
+
     async with _sessions_lock:
+
         # Reconexão do mesmo celular não pode deixar o ffmpeg antigo rodando.
         await close_superseded_sessions(params.client_id or "", params.card_key or "",
                                         params.window_id_hex or "")
